@@ -7,8 +7,15 @@ import networkx as nx
 import dash
 import dash_cytoscape as cyto
 import dash_html_components as html
+import dash_core_components as dcc
 from dash.dependencies import Input, Output, State
 from collections import defaultdict
+
+
+
+app = dash.Dash(
+    __name__, meta_tags=[{'name': 'viewport', 'content': 'width=device-width'}]
+)
 
 
 ANDREW = '1258447710'
@@ -29,7 +36,7 @@ token = util.prompt_for_user_token(username,
 if token:
     sp = spotipy.Spotify(auth=token)
 else:
-    raise RuntimeError("Cannot get token")
+    raise RuntimeError('Cannot get token')
 
 
 def get_ratings(path):
@@ -65,7 +72,7 @@ def get_feature_df(track_table, feature_data):
     for i in range(len(track_table)):
         track = track_table[i]
         track_features = feature_data[i]
-        row_names = [track[0], ", ".join(track[2])]
+        row_names = [track[0], ', '.join(track[2])]
         row_features = [track_features[feature] for feature in features]
         feature_table.append(row_names + row_features)
     
@@ -113,73 +120,81 @@ def get_top_artists(time_range):
 
 # Parameters
 include_related_edges = False
-weight_threshold = 200
+default_weight_threshold = 200
 weight_baseline = 10
 size_baseline = 30
-time_range = 'medium_term'
+default_time_range = 'medium_term'
+top_names = [] # fix this by not having to use in the node hover update (modify CSS styling)
+
+
 
 def get_weight(rank):
     return -rank + MIN_RANK + weight_baseline
 def get_size(rank):
     return -rank + MIN_RANK + size_baseline
 
-nodes = []
-edges = []
 
-# top_df_short = get_top_artists('short_term')
-# top_df_med = get_top_artists('medium_term')
-# top_df_long = get_top_artists('long_term')
-# top_df_combined = top_df_short.append(top_df_med).append(top_df_long).drop_duplicates()
+def get_graph_elements(time_range, threshold):
 
-top_df = get_top_artists(time_range)
-top_names = [name for name in top_df['artist'].values]
-new_artist_edges = defaultdict(lambda: [])
-new_artist_ids = {}
-weights = defaultdict(lambda: 0)
-ranks = {}
+    nodes = []
+    edges = []
 
-for (rank, row) in top_df.iterrows():
-    current_name = row['artist']
-    ranks[current_name] = rank
-    for related_artist in sp.artist_related_artists(row['id'])['artists']:
-        related_name = related_artist['name']
-        related_edge = {'data': {'source': current_name, 'target': related_name}}
-        if related_name in top_names:
-            if {'data': {'source': related_name, 'target': current_name}} not in edges:
-                edges.append(related_edge)
-        else:
-            new_artist_edges[related_name].append(related_edge)
-            if related_name not in new_artist_ids:
-                new_artist_ids[related_name] = related_artist['id']
+    # top_df_short = get_top_artists('short_term')
+    # top_df_med = get_top_artists('medium_term')
+    # top_df_long = get_top_artists('long_term')
+    # top_df_combined = top_df_short.append(top_df_med).append(top_df_long).drop_duplicates()
 
-for edge in edges:
-    (u, v) = (edge['data']['source'], edge['data']['target'])
-    weights[u] += get_weight(ranks[v])
-    weights[v] += get_weight(ranks[u])
+    top_df = get_top_artists(time_range)
+    top_names = [name for name in top_df['artist'].values]
+    new_artist_edges = defaultdict(lambda: [])
+    new_artist_ids = {}
+    weights = defaultdict(lambda: 0)
+    
+    ranks = {}
 
-for (new_name, new_edges) in new_artist_edges.items():
-    for edge in new_edges:
+    for (rank, row) in top_df.iterrows():
+        current_name = row['artist']
+        ranks[current_name] = rank
+        for related_artist in sp.artist_related_artists(row['id'])['artists']:
+            related_name = related_artist['name']
+            related_edge = {'data': {'source': current_name, 'target': related_name}}
+            if related_name in top_names:
+                if {'data': {'source': related_name, 'target': current_name}} not in edges:
+                    edges.append(related_edge)
+            else:
+                new_artist_edges[related_name].append(related_edge)
+                if related_name not in new_artist_ids:
+                    new_artist_ids[related_name] = related_artist['id']
+
+    for edge in edges:
         (u, v) = (edge['data']['source'], edge['data']['target'])
-        # assert(edge['data']['source'] in top_names and edge['data']['target'] not in top_names)
+        weights[u] += get_weight(ranks[v])
         weights[v] += get_weight(ranks[u])
 
-    if weights[new_name] >= weight_threshold:
-        nodes.append({'data': {'id': new_name, 'label': new_name + " " + str(weights[new_name]), 'size': get_size(MIN_RANK), 'weight': weights[new_name]}, 'classes': 'new'})
-        edges += new_edges
+    for (new_name, new_edges) in new_artist_edges.items():
+        for edge in new_edges:
+            (u, v) = (edge['data']['source'], edge['data']['target'])
+            # assert(edge['data']['source'] in top_names and edge['data']['target'] not in top_names)
+            weights[v] += get_weight(ranks[u])
 
-for (rank, name) in enumerate(top_names):
-    nodes.append({'data': {'id': name, 'label': name + " " + str(weights[name]), 'size': get_size(rank), 'weight': weights[name]}, 'classes': 'top'})
+        if weights[new_name] >= threshold:
+            nodes.append({'data': {'id': new_name, 'label': new_name + ' ' + str(weights[new_name]), 'size': get_size(MIN_RANK), 'weight': weights[new_name]}, 'classes': 'new'})
+            edges += new_edges
+
+    for (rank, name) in enumerate(top_names):
+        nodes.append({'data': {'id': name, 'label': name + ' ' + str(weights[name]), 'size': get_size(rank), 'weight': weights[name]}, 'classes': 'top'})
  
 
-if include_related_edges:
-    node_names = [node['data']['id'] for node in nodes]
-    for name in node_names:
-        if name not in top_names:
-            for related_artist in sp.artist_related_artists(new_artist_ids[name])['artists']:
-                related_name = related_artist['name']
-                if related_name in node_names and {'data': {'source': related_name, 'target': name}} not in edges:
-                    edges.append({'data': {'source': name, 'target': related_name}})
+    if include_related_edges:
+        node_names = [node['data']['id'] for node in nodes]
+        for name in node_names:
+            if name not in top_names:
+                for related_artist in sp.artist_related_artists(new_artist_ids[name])['artists']:
+                    related_name = related_artist['name']
+                    if related_name in node_names and {'data': {'source': related_name, 'target': name}} not in edges:
+                        edges.append({'data': {'source': name, 'target': related_name}})
 
+    return nodes + edges
 
 
 
@@ -239,8 +254,8 @@ cose_long = {
 graph = cyto.Cytoscape(
     id='artist-graph',
     layout=cose_medium3,
-    style={'width': '1280px', 'height': '800px'},
-    elements=(nodes + edges),
+    style={'width': '800px', 'height': '800px'},
+    elements=[],
     stylesheet=[
         {
             'selector': 'node',
@@ -295,33 +310,134 @@ graph = cyto.Cytoscape(
 )
 
 
-app = dash.Dash(__name__)
-app.layout = html.Div([
-    graph
-])
+app.layout = html.Div(
+    children=[
+        html.Div(
+            className='one columns div-left-panel',
+            children=[
+                html.Div(
+                    id='div-header',
+                    children=[
+                        html.H3(id='title-header', children='Artist Graph')
+                    ]
+                ),
+                html.Div(
+                    id='div-graph-options',
+                    children=[
+                        dcc.Dropdown(
+                            id='time-range-dropdown',
+                            options=[
+                                {'label': 'Short (4 weeks)', 'value': 'short_term'},
+                                {'label': 'Medium (6 months)', 'value': 'medium_term'},
+                                {'label': 'Long (all-time)', 'value': 'long_term'}
+                            ],
+                            value='medium_term'
+                        ),
+                        html.P(id='new-artist-threshold-label', children='New artist threshold'),
+                        dcc.Slider(
+                            id='new-artist-threshold-slider',
+                            min=0,
+                            max=500,
+                            step=10,
+                            value=default_weight_threshold
+                        ),
+                        html.P(id='new-artist-threshold-value'),
+                        dcc.Input(
+                            id='artist-search',
+                            type='text',
+                            placeholder='Search for an artist...'
+                        ),
+                        html.Div(
+                            id='div-artist-tracks',
+                            children=[
+                                html.P(className='two columns', children='Track'),
+                                html.P(className='two columns', children='Artist'),
+                                html.Div(id='track-container')
+                            ],
+                        ),
+                    ]
+                )
+            ]
+        ),
+        html.Div(
+            className='six columns div-graph-container',
+            children=[
+                graph
+            ]
+        )
+    ]
+)
 
 
-@app.callback(Output('artist-graph', 'elements'),
-                [Input('artist-graph', 'mouseoverNodeData')],
-                [State('artist-graph', 'elements')])
-def onHoverNode(data, elements):
-    if data:
-        for edge in elements:
-            if 'source' in edge['data']:
-                if edge['data']['source'] == data['id'] or edge['data']['target'] == data['id']:
-                    edge['classes'] = 'selected-edge'
-                elif 'classes' in edge and edge['classes'] == 'selected-edge':
-                    edge['classes'] = ''
-        for node in elements:
-            if node['data']['id'] == data['id']:
-                node['classes'] = 'selected-node'
-            elif 'classes' in node and node['classes'] == 'selected-node':
-                if node['data']['id'] in top_names:
-                    node['classes'] = 'top'
-                else:
-                    node['classes'] = 'new'
 
-    return elements
+
+# @app.callback(
+#     Output('artist-graph', 'elements'),
+#     [
+#         Input('time-range-dropdown', 'value'),
+#         Input('new-artist-threshold-slider', 'value')
+#     ],
+#     [State('artist-graph', 'elements')])
+# def update_graph_time_range(time_range, threshold, elements):
+#     return get_graph_elements(time_range, threshold)
+
+
+@app.callback(
+    Output('artist-graph', 'elements'),
+    [
+        Input('time-range-dropdown', 'value'),
+        Input('new-artist-threshold-slider', 'value')
+    ],
+    [State('artist-graph', 'elements')])
+def update_artist_graph(time_range, threshold, elements):
+    return get_graph_elements(time_range, threshold)
+
+
+@app.callback(
+    Output('new-artist-threshold-value', 'children'),
+    [
+        Input('new-artist-threshold-slider', 'value')
+    ])
+def update_threshold_slider(threshold):
+    return threshold
+
+# @app.callback(
+#     [
+#         Output('artist-graph', 'elements'),
+#         Output('new-artist-threshold-value', 'children')
+#     ],
+#     [
+#         Input('new-artist-threshold-slider', 'value'),
+#         Input('time-range-dropdown', 'value')
+#     ],
+#     [State('artist-graph', 'elements')])
+# def update_slider_output(threshold, time_range, elements):
+#     return (get_graph_elements(time_range, threshold), threshold)
+
+
+
+# @app.callback(
+#     Output('artist-graph', 'elements'),
+#     [Input('artist-graph', 'mouseoverNodeData')],
+#     [State('artist-graph', 'elements')])
+# def on_hover_node(data, elements):
+#     if data:
+#         for edge in elements:
+#             if 'source' in edge['data']:
+#                 if edge['data']['source'] == data['id'] or edge['data']['target'] == data['id']:
+#                     edge['classes'] = 'selected-edge'
+#                 elif 'classes' in edge and edge['classes'] == 'selected-edge':
+#                     edge['classes'] = ''
+#         for node in elements:
+#             if node['data']['id'] == data['id']:
+#                 node['classes'] = 'selected-node'
+#             elif 'classes' in node and node['classes'] == 'selected-node':
+#                 if node['data']['id'] in top_names:
+#                     node['classes'] = 'top'
+#                 else:
+#                     node['classes'] = 'new'
+
+#     return elements
 
 
 
