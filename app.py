@@ -17,6 +17,17 @@ app = dash.Dash(
     __name__, meta_tags=[{'name': 'viewport', 'content': 'width=device-width'}]
 )
 
+# logging.basicConfig(level=logging.WARNING)
+# logger = logging.getLogger(__name__)
+# logger.setLevel(logging.WARNING)
+# logger.debug('test debug message')
+
+# app.logger.setLevel(logging.WARNING)
+# app.logger.debug('test debug message')
+
+# print('This is error output', file=sys.stderr)
+# print('This is standard output')
+
 
 ANDREW = '1258447710'
 ARNAV  = '67th4pl1pr8noy9kg5p19llnf'
@@ -38,13 +49,6 @@ if token:
 else:
     raise RuntimeError('Cannot get token')
 
-
-def get_ratings(path):
-    ratings = []
-    with open(path, 'r') as f:
-        for rating in f.readlines():
-            ratings.append(int(rating.strip()))
-    return ratings
 
       
 def add_to_table(table, results):
@@ -135,21 +139,15 @@ def get_size(rank):
 
 
 def get_graph_elements(time_range, threshold):
-
+    app.logger.debug('test debug message')
     nodes = []
     edges = []
-
-    # top_df_short = get_top_artists('short_term')
-    # top_df_med = get_top_artists('medium_term')
-    # top_df_long = get_top_artists('long_term')
-    # top_df_combined = top_df_short.append(top_df_med).append(top_df_long).drop_duplicates()
 
     top_df = get_top_artists(time_range)
     top_names = [name for name in top_df['artist'].values]
     new_artist_edges = defaultdict(lambda: [])
     new_artist_ids = {}
     weights = defaultdict(lambda: 0)
-    
     ranks = {}
 
     for (rank, row) in top_df.iterrows():
@@ -198,6 +196,10 @@ def get_graph_elements(time_range, threshold):
 
 
 
+
+
+
+
 cose_medium = {
     'name': 'cose',
     'animate': False,
@@ -231,8 +233,8 @@ cose_medium3 = {
     'edgeElasticity': 200, 
     'nodeRepulsion': 2000000,
     'nodeOverlap': 2000000,
-    'gravity': 200,
-    'componentSpacing': 250,
+    'gravity': 40,
+    'componentSpacing': 200,
     'nodeDimensionsIncludeLabels': True
 }
 
@@ -254,7 +256,7 @@ cose_long = {
 graph = cyto.Cytoscape(
     id='artist-graph',
     layout=cose_medium3,
-    style={'width': '800px', 'height': '800px'},
+    style={'width': '100%', 'height': '100vh'},
     elements=[],
     stylesheet=[
         {
@@ -311,9 +313,10 @@ graph = cyto.Cytoscape(
 
 
 app.layout = html.Div(
+    className='row',
     children=[
         html.Div(
-            className='one columns div-left-panel',
+            className='left-panel',
             children=[
                 html.Div(
                     id='div-header',
@@ -324,6 +327,7 @@ app.layout = html.Div(
                 html.Div(
                     id='div-graph-options',
                     children=[
+                        html.Label(id='time-range-label', htmlFor='time-range-dropdown', children='Time Range'),
                         dcc.Dropdown(
                             id='time-range-dropdown',
                             options=[
@@ -331,28 +335,41 @@ app.layout = html.Div(
                                 {'label': 'Medium (6 months)', 'value': 'medium_term'},
                                 {'label': 'Long (all-time)', 'value': 'long_term'}
                             ],
-                            value='medium_term'
+                            value='medium_term',
+                            searchable=False,
+                            clearable=False
                         ),
-                        html.P(id='new-artist-threshold-label', children='New artist threshold'),
+                        html.Label(id='new-artist-threshold-label', htmlFor='new-artist-threshold-slider', children='New artist threshold'),
                         dcc.Slider(
                             id='new-artist-threshold-slider',
                             min=0,
-                            max=500,
-                            step=10,
-                            value=default_weight_threshold
+                            max=1000,
+                            step=50,
+                            value=1000,
+                            tooltip={'always_visible': True, 'placement': 'right'}
                         ),
-                        html.P(id='new-artist-threshold-value'),
-                        dcc.Input(
-                            id='artist-search',
-                            type='text',
+                        html.Label(id='artist-search-label', htmlFor='artist-search-dropdown', children='Artist Search'),
+                        dcc.Dropdown(
+                            id='artist-search-dropdown',
+                            options=[],
                             placeholder='Search for an artist...'
                         ),
+                        # html.Datalist(
+                        #     id='search-suggestions',
+                        #     children=[]
+                        # ),
+                        # dcc.Input(
+                        #     id='artist-search',
+                        #     type='text',
+                        #     placeholder='Search for an artist...',
+                        #     list='search-suggestions',
+                        #     value=''
+                        # ),
                         html.Div(
-                            id='div-artist-tracks',
+                            id='artist-tracks',
                             children=[
-                                html.P(className='two columns', children='Track'),
-                                html.P(className='two columns', children='Artist'),
-                                html.Div(id='track-container')
+                                html.P(id='artist-tracks-header'),
+                                html.Ul(id='artist-tracks-list', children=[])
                             ],
                         ),
                     ]
@@ -360,9 +377,20 @@ app.layout = html.Div(
             ]
         ),
         html.Div(
-            className='six columns div-graph-container',
+            className='center-panel',
             children=[
                 graph
+            ]
+        ),
+        html.Div(
+            className='right-panel',
+            children=[
+                html.Div(
+                    id='div-playlist-header',
+                    children=[
+                        html.H3(id='playlist-title-header', children='Playlist Maker')
+                    ]
+                )
             ]
         )
     ]
@@ -370,16 +398,48 @@ app.layout = html.Div(
 
 
 
+def get_search_suggestions(text):
+    query = "\"" + text.replace(" ", "+") + "\""
+    results = sp.search(query, type='artist')
+    return [{'label': artist['name'], 'value': artist['id']} for artist in results['artists']['items']]
+    # return [html.Option(label=artist['name'], value=artist['id']) for artist in results['artists']['items']]
+
+
+def get_artist_tracks(artist_id):
+    results = sp.artist_top_tracks(artist_id)
+    return [html.Li(
+        children=[
+            html.P(className='track-name', children=track['name']),
+            html.P(className='track-artists', children=', '.join([artist['name'] for artist in track['artists']])),
+            html.Audio(className='track-audio', src=track['preview_url'], controls='controls')
+        ]) for track in results['tracks']]
+
+
 
 # @app.callback(
-#     Output('artist-graph', 'elements'),
-#     [
-#         Input('time-range-dropdown', 'value'),
-#         Input('new-artist-threshold-slider', 'value')
-#     ],
-#     [State('artist-graph', 'elements')])
-# def update_graph_time_range(time_range, threshold, elements):
-#     return get_graph_elements(time_range, threshold)
+#     Output('search-suggestions', 'children'),
+#     [Input('artist-search', 'value')])
+# def update_search_suggestions(text):
+#     if text:
+#         return get_search_suggestions(text)
+
+@app.callback(
+    Output('artist-search-dropdown', 'options'),
+    [
+        Input('artist-search-dropdown', 'search_value'),
+        Input('artist-search-dropdown', 'value')
+    ],
+    [State('artist-search-dropdown', 'options')])
+def update_search_suggestions(search_value, value, options):
+    print("Search value: {}".format(search_value))
+    print("Value: {}".format(value))
+    if search_value:
+        return get_search_suggestions(search_value)
+    elif value:
+        return [option for option in options if option['value'] == value]
+    else:
+        return options
+    
 
 
 @app.callback(
@@ -387,32 +447,21 @@ app.layout = html.Div(
     [
         Input('time-range-dropdown', 'value'),
         Input('new-artist-threshold-slider', 'value')
-    ],
-    [State('artist-graph', 'elements')])
-def update_artist_graph(time_range, threshold, elements):
+    ])
+def update_artist_graph(time_range, threshold):
     return get_graph_elements(time_range, threshold)
 
 
-@app.callback(
-    Output('new-artist-threshold-value', 'children'),
-    [
-        Input('new-artist-threshold-slider', 'value')
-    ])
-def update_threshold_slider(threshold):
-    return threshold
+    
 
-# @app.callback(
-#     [
-#         Output('artist-graph', 'elements'),
-#         Output('new-artist-threshold-value', 'children')
-#     ],
-#     [
-#         Input('new-artist-threshold-slider', 'value'),
-#         Input('time-range-dropdown', 'value')
-#     ],
-#     [State('artist-graph', 'elements')])
-# def update_slider_output(threshold, time_range, elements):
-#     return (get_graph_elements(time_range, threshold), threshold)
+@app.callback(
+    Output('artist-tracks-list', 'children'),
+    [
+        Input('artist-search-dropdown', 'value'),
+    ])
+def update_artist_tracks(artist_id):
+    if artist_id:
+        return get_artist_tracks(artist_id)
 
 
 
