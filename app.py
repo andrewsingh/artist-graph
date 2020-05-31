@@ -312,6 +312,12 @@ graph = cyto.Cytoscape(
 )
 
 
+expansion_marks = {}
+for i in range(1, 6):
+    expansion_marks[i] = {'label': str(i)}
+
+exclude_dropdown_options = []
+
 app.layout = html.Div(
     className='row',
     children=[
@@ -354,24 +360,14 @@ app.layout = html.Div(
                             options=[],
                             placeholder='Search for an artist...'
                         ),
-                        # html.Datalist(
-                        #     id='search-suggestions',
-                        #     children=[]
-                        # ),
-                        # dcc.Input(
-                        #     id='artist-search',
-                        #     type='text',
-                        #     placeholder='Search for an artist...',
-                        #     list='search-suggestions',
-                        #     value=''
-                        # ),
-                        html.Div(
-                            id='artist-tracks',
-                            children=[
-                                html.P(id='artist-tracks-header'),
-                                html.Ul(id='artist-tracks-list', children=[])
-                            ],
-                        ),
+                        html.Ul(id='artist-tracks-list', children=[]),
+                        # html.Div(
+                        #     id='artist-tracks',
+                        #     children=[
+                        #         html.P(id='artist-tracks-header'),
+                                
+                        #     ],
+                        # )
                     ]
                 )
             ]
@@ -386,9 +382,50 @@ app.layout = html.Div(
             className='right-panel',
             children=[
                 html.Div(
-                    id='div-playlist-header',
+                    id='playlist-header',
                     children=[
                         html.H3(id='playlist-title-header', children='Playlist Maker')
+                    ]
+                ),
+                html.Button('New Playlist', id='new-playlist-btn', className='button-primary'),
+                html.Div(
+                    id='playlist-maker',
+                    children=[
+                        html.Label(id='playlist-size-label', htmlFor='playlist-size-slider', children='Playlist Size'),
+                        dcc.Slider(
+                            id='playlist-size-slider',
+                            min=25,
+                            max=200,
+                            step=25,
+                            value=50,
+                            tooltip={'always_visible': True, 'placement': 'left'}
+                        ),
+                        html.Label(id='expansion-label', htmlFor='expansion-slider', children='Expansion Factor'),
+                        dcc.Slider(
+                            id='expansion-slider',
+                            min=1,
+                            max=5,
+                            step=1,
+                            value=3,
+                            marks=expansion_marks
+                        ),
+                        dcc.Checklist(
+                           id='exclude-playlist-tracks',
+                           options=[
+                               {'label': 'Exclude tracks in your current playlists', 'value': 1}
+                           ]
+                        ),
+                        html.H6('Seeds'),
+                        html.P(id='seed-list', children=' '),
+                        html.Button('Initialize', id='initialize-btn', className='button-primary'),
+                        html.Br(),
+                        dcc.Input(
+                            id='playlist-name',
+                            type='text',
+                            placeholder='Name your playlist...'
+                        ),
+                        html.Ul(id='playlist', children=[]),
+                        html.Button('Save to Spotify', id='save-playlist-btn', className='button-primary'),
                     ]
                 )
             ]
@@ -402,7 +439,6 @@ def get_search_suggestions(text):
     query = "\"" + text.replace(" ", "+") + "\""
     results = sp.search(query, type='artist')
     return [{'label': artist['name'], 'value': artist['id']} for artist in results['artists']['items']]
-    # return [html.Option(label=artist['name'], value=artist['id']) for artist in results['artists']['items']]
 
 
 def get_artist_tracks(artist_id):
@@ -416,13 +452,6 @@ def get_artist_tracks(artist_id):
 
 
 
-# @app.callback(
-#     Output('search-suggestions', 'children'),
-#     [Input('artist-search', 'value')])
-# def update_search_suggestions(text):
-#     if text:
-#         return get_search_suggestions(text)
-
 @app.callback(
     Output('artist-search-dropdown', 'options'),
     [
@@ -431,8 +460,8 @@ def get_artist_tracks(artist_id):
     ],
     [State('artist-search-dropdown', 'options')])
 def update_search_suggestions(search_value, value, options):
-    print("Search value: {}".format(search_value))
-    print("Value: {}".format(value))
+    # print("Search value: {}".format(search_value))
+    # print("Value: {}".format(value))
     if search_value:
         return get_search_suggestions(search_value)
     elif value:

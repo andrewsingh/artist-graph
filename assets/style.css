@@ -16,6 +16,13 @@
 */
 
 
+/* Theme colors
+#b2b2b2
+#b4b4b4
+
+*/
+
+
 /* Grid
 –––––––––––––––––––––––––––––––––––––––––––––––––– */
 .container {
@@ -156,6 +163,71 @@ input[type="button"].button-primary:focus {
   border-color: #1EAEDB; }
 
 
+/* Forms
+  –––––––––––––––––––––––––––––––––––––––––––––––––– */
+  input[type="email"],
+  input[type="number"],
+  input[type="search"],
+  input[type="text"],
+  input[type="tel"],
+  input[type="url"],
+  input[type="password"],
+  textarea,
+  select {
+    height: 38px;
+    padding: 6px 10px; /* The 6px vertically centers text on FF, ignored by Webkit */
+    background-color: #fff;
+    border: 1px solid #D1D1D1;
+    border-radius: 4px;
+    box-shadow: none;
+    box-sizing: border-box; 
+    font-family: inherit;
+    font-size: inherit; /*https://stackoverflow.com/questions/6080413/why-doesnt-input-inherit-the-font-from-body*/}
+  /* Removes awkward default styles on some inputs for iOS */
+  input[type="email"],
+  input[type="number"],
+  input[type="search"],
+  input[type="text"],
+  input[type="tel"],
+  input[type="url"],
+  input[type="password"],
+  textarea {
+    -webkit-appearance: none;
+       -moz-appearance: none;
+            appearance: none; }
+  textarea {
+    min-height: 65px;
+    padding-top: 6px;
+    padding-bottom: 6px; }
+  input[type="email"]:focus,
+  input[type="number"]:focus,
+  input[type="search"]:focus,
+  input[type="text"]:focus,
+  input[type="tel"]:focus,
+  input[type="url"]:focus,
+  input[type="password"]:focus,
+  textarea:focus,
+  select:focus {
+    border: 1px solid #33C3F0;
+    outline: 0; }
+  label,
+  legend {
+    display: block;
+    margin-bottom: 0px; }
+  fieldset {
+    padding: 0;
+    border-width: 0; }
+  input[type="checkbox"],
+  input[type="radio"] {
+    display: inline; }
+  label > .label-body {
+    display: inline-block;
+    margin-left: .5rem;
+    font-weight: normal; }
+
+
+
+
 
 /* width */
 ::-webkit-scrollbar {
@@ -183,21 +255,24 @@ input[type="button"].button-primary:focus {
 }
 
 audio {
-  width: 100px;
+  width: 180px;
   height: 20px;
   font-size: x-small;
   margin-top: 5px;
 }
 
 
-/* audio::-webkit-media-controls-timeline-container {
+audio::-webkit-media-controls-timeline-container {
   margin: 0px;
   padding: 0px;
-} */
+  
+}
+
+audio::-webkit-media-controls-timeline {
+  min-width: 80px;
+}
 
 audio::-webkit-media-controls-mute-button, audio::-webkit-media-controls-volume-slider, 
-audio::-webkit-media-controls-timeline, audio::-webkit-media-controls-timeline-container,
-audio::-webkit-media-controls-current-time-display, audio::-webkit-media-controls-time-remaining-display,
 audio::-webkit-media-controls-volume-slider-container {
   width: 0px;
   height: 0px;
@@ -212,9 +287,9 @@ audio::-webkit-media-controls-enclosure {
 }
 
 
-/* audio::-webkit-media-controls-current-time-display, audio::-webkit-media-controls-time-remaining-display {
+audio::-webkit-media-controls-current-time-display, audio::-webkit-media-controls-time-remaining-display {
   font-size: small;
-} */
+}
 
 
 /* audio::-webkit-media-controls-mute-button, audio::-webkit-media-controls-volume-slider-container, audio::-webkit-media-controls-volume-slider {
@@ -253,7 +328,7 @@ body{
 
 .left-panel, .right-panel {
   background-color: #22252b;
-  color: #b2b2b2;
+  color: white;
   margin: 0px;
   height:100vh;
   padding: 20px;
@@ -263,7 +338,7 @@ body{
 
  .Select-control{
   background-color: inherit;
-  color:#b4b4b4;
+  color:white;
   border-color: rgba(180, 180, 180, 0.4);
   /* border-radius: 20px 20px 20px 20px / 50% 50% 50% 50%; */
 }
@@ -281,13 +356,16 @@ body{
 }
 
 .has-value.Select--single>.Select-control .Select-value .Select-value-label, .has-value.is-pseudo-focused.Select--single>.Select-control .Select-value .Select-value-label{
-  color:#b4b4b4;
+  color:white;
 }
 
-.Select-input {
-  color:#b4b4b4;
+
+
+#artist-search-dropdown {
+  color: white;
 }
 
+/* #b2b2b2 */
 
 /*
 div.Select-value, .Select-control,div.period, .Select-input{
@@ -301,11 +379,6 @@ div.Select-value, .Select-control,div.period, .Select-input{
   position: relative;
   padding: 0 10px;
 }
-
-.has-value.Select--single>.Select-control .Select-value .Select-value-label, .has-value.is-pseudo-focused.Select--single>.Select-control .Select-value .Select-value-label{
-  color:#b4b4b4;
-}
-
 */
 
 #time-range-dropdown {
@@ -324,6 +397,7 @@ div.Select-value, .Select-control,div.period, .Select-input{
   overflow-y: auto;
 }
 
+
 #artist-tracks-list li {
   border-bottom: 1px solid rgba(180, 180, 180, 0.4);
   padding: 8px 5px;
@@ -336,7 +410,7 @@ div.Select-value, .Select-control,div.period, .Select-input{
 }
 
 .track-artists {
-  font-size: small;
+  font-size: smaller;
   margin: 0px;
   padding: 0px;
 }
@@ -345,3 +419,35 @@ div.Select-value, .Select-control,div.period, .Select-input{
 #artist-tracks-list li:hover {
   background-color: rgba(180, 180, 180, 0.4);
 }
+
+
+
+#exclude-dropdown {
+  width: 50px;
+  display: inline-block;
+}
+
+
+#new-playlist-btn {
+  margin-top: 5px;
+  margin-bottom: 20px;
+}
+
+#playlist-size-label {
+  margin-bottom: 10px;
+}
+
+#expansion-slider {
+  margin-bottom: 10px;
+}
+
+#playlist-name {
+  margin-top: 20px;
+  background-color: inherit;
+  color: white;
+}
+
+#save-playlist-btn {
+  margin-top: 20px;
+}
+
