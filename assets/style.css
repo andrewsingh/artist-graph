@@ -320,16 +320,13 @@ body{
   height: 100vh;
   margin: 0;
 }
-.left-panel {
+
+.left-panel, .right-panel {
   width: 17.5%;
 }
 
-.right-panel {
-  width: 22.5%;
-}
-
 .center-panel {
-  width: 60%;
+  width: 65%;
 } 
 
 .left-panel, .right-panel, .center-panel {

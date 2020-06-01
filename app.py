@@ -117,7 +117,7 @@ default_weight_threshold = 200
 weight_baseline = 10
 size_baseline = 30
 default_time_range = 'medium_term'
-top_names = [] # fix this by not having to use in the node hover update (modify CSS styling)
+# top_names = [] # fix this by not having to use in the node hover update (modify CSS styling)
 choosing_seeds = False
 seeds = []
 # adjacency_list = {}
@@ -149,9 +149,8 @@ def get_graph_elements(time_range, threshold):
             related_name = related_artist['name']
             related_edge = {'data': {'source': current_name, 'target': related_name}, 'classes': ''}
             if related_name in top_names:
-                if {'data': {'source': related_name, 'target': current_name}} not in edges:
-                    edges.append(related_edge)
-                    # adjacency_list[current_name].append(related_name)
+                if len([edge for edge in edges if edge['data']['source'] == related_name and edge['data']['target'] == current_name]) == 0:
+                    edges.append(related_edge)                    
             else:
                 new_artist_edges[related_name].append(related_edge)
                 if related_name not in artist_ids:
@@ -169,14 +168,13 @@ def get_graph_elements(time_range, threshold):
             weights[v] += get_weight(ranks[u])
 
         if weights[new_name] >= threshold:
-            nodes.append({'data': {'id': new_name, 'label': new_name + ' ' + str(weights[new_name]), 'top': False, 
-                'size': get_size(MIN_RANK), 'weight': weights[new_name], 'activation': 0, 'selected': False}, 'classes': ''})
+            nodes.append({'data': {'id': new_name, 'label': new_name + ' ' + str(weights[new_name]),
+                'size': get_size(MIN_RANK), 'weight': weights[new_name], 'activation': 0, 'selected': False, 'top': False}, 'classes': 'new'})
             edges += new_edges
-            # adjacency_list[new_name] = [edge['data']['target'] for edge in new_edges]
 
     for (rank, name) in enumerate(top_names):
-        nodes.append({'data': {'id': name, 'label': name + ' ' + str(weights[name]), 'size': get_size(rank), 'top': True, 
-            'weight': weights[name], 'activation': 0, 'selected': False}, 'classes': ''})
+        nodes.append({'data': {'id': name, 'label': name + ' ' + str(weights[name]), 'size': get_size(rank),
+            'weight': weights[name], 'activation': 0, 'selected': False, 'top': True}, 'classes': 'top'})
  
 
     if include_related_edges:
@@ -265,6 +263,7 @@ graph = cyto.Cytoscape(
                 # 'background-color': '#555',
                 # 'text-outline-color': '#555',
                 'text-outline-width': '2px',
+                # 'font-size': '24px',
                 'color': '#fff',
                 'text-valign': 'center',
                 'text-halign': 'center'
@@ -274,7 +273,8 @@ graph = cyto.Cytoscape(
         {
             'selector': 'edge',
             'style': {
-                'width': '2px'
+                'width': '2px',
+                'opacity': 0.5
             }
         },
         # {
@@ -287,7 +287,9 @@ graph = cyto.Cytoscape(
         {
             'selector': '.selected-edge',
             'style': {
-                'line-color': '#f00'
+                'line-color': '#f00',
+                'width': '4px',
+                'z-index': 99
             }
         },
         # {
@@ -305,17 +307,17 @@ graph = cyto.Cytoscape(
             }
         },
         {
-            'selector': '[top = True]',
+            'selector': '.top',
             'style': {
                 'background-color': '#555',
                 'text-outline-color': '#555'
             }
         },
         {
-            'selector': '[top = False]',
+            'selector': '.new',
             'style': {
-                'background-color': '#00f',
-                'text-outline-color': '#00f'
+                'background-color': 'rgb(19, 157, 255)',
+                'text-outline-color': 'rgb(19, 157, 255)'
             }
         },
         # {
@@ -330,7 +332,7 @@ graph = cyto.Cytoscape(
 
 
 expansion_marks = {}
-for i in range(1, 5):
+for i in range(0, 4):
     expansion_marks[i] = {'label': str(i)}
 
 exclude_dropdown_options = []
@@ -487,6 +489,19 @@ def update_search_suggestions(search_value, value, options):
         return options
     
 
+
+
+def old_class(elem):
+    if 'label' in elem['data']:
+        if elem['data']['top']:
+            return 'top'
+        else:
+            print("{} not in top".format(elem))
+            return 'new'
+    else:
+        return ''
+
+
 @app.callback(
     [
         Output('artist-graph', 'elements'),
@@ -529,18 +544,19 @@ def update_artist_graph(time_range, threshold, nodeData, expansion_depth, elemen
                         if elem['data']['source'] == nodeData['id'] or elem['data']['target'] == nodeData['id']:
                             elem['classes'] = 'selected-edge'
                         elif elem['classes'] == 'selected-edge':
-                            elem['classes'] = ''
-                    elif 'id' in elem['data'] and elem['data']['id'] != seed['data']['id'] and elem['data']['selected'] == True:
+                            elem['classes'] = old_class(elem)
+                    elif 'label' in elem['data'] and elem['data']['id'] != seed['data']['id'] and elem['data']['selected'] == True:
                         elem['data']['selected'] = False
-                        elem['classes'] = ''
+                        elem['classes'] = old_class(elem)
                         print("UNSELECT {}".format(elem))
                 return elements, seed_list, artist_ids[seed['data']['id']]
             else:
                 seed['data']['selected'] = False
-                seed['classes'] = ''
+                seed['classes'] = old_class(seed)
+                print("UNSELECT {}".format(seed))
                 for elem in elements:
                     if 'source' in elem['data'] and elem['classes'] == 'selected-edge':
-                        elem['classes'] = ''
+                        elem['classes'] = old_class(elem)
                 return elements, seed_list, ''
         # print("Selected:")
         # for node in elements:
