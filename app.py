@@ -17,17 +17,6 @@ app = dash.Dash(
     __name__, meta_tags=[{'name': 'viewport', 'content': 'width=device-width'}]
 )
 
-# logging.basicConfig(level=logging.WARNING)
-# logger = logging.getLogger(__name__)
-# logger.setLevel(logging.WARNING)
-# logger.debug('test debug message')
-
-# app.logger.setLevel(logging.WARNING)
-# app.logger.debug('test debug message')
-
-# print('This is error output', file=sys.stderr)
-# print('This is standard output')
-
 
 ANDREW = '1258447710'
 ARNAV  = '67th4pl1pr8noy9kg5p19llnf'
@@ -129,8 +118,10 @@ weight_baseline = 10
 size_baseline = 30
 default_time_range = 'medium_term'
 top_names = [] # fix this by not having to use in the node hover update (modify CSS styling)
-
-
+choosing_seeds = False
+seeds = []
+# adjacency_list = {}
+artist_ids = {}
 
 def get_weight(rank):
     return -rank + MIN_RANK + weight_baseline
@@ -139,30 +130,32 @@ def get_size(rank):
 
 
 def get_graph_elements(time_range, threshold):
-    app.logger.debug('test debug message')
     nodes = []
     edges = []
 
     top_df = get_top_artists(time_range)
     top_names = [name for name in top_df['artist'].values]
     new_artist_edges = defaultdict(lambda: [])
-    new_artist_ids = {}
+    
     weights = defaultdict(lambda: 0)
     ranks = {}
 
     for (rank, row) in top_df.iterrows():
         current_name = row['artist']
         ranks[current_name] = rank
+        artist_ids[current_name] = row['id']
+        # adjacency_list[current_name] = []
         for related_artist in sp.artist_related_artists(row['id'])['artists']:
             related_name = related_artist['name']
-            related_edge = {'data': {'source': current_name, 'target': related_name}}
+            related_edge = {'data': {'source': current_name, 'target': related_name}, 'classes': ''}
             if related_name in top_names:
                 if {'data': {'source': related_name, 'target': current_name}} not in edges:
                     edges.append(related_edge)
+                    # adjacency_list[current_name].append(related_name)
             else:
                 new_artist_edges[related_name].append(related_edge)
-                if related_name not in new_artist_ids:
-                    new_artist_ids[related_name] = related_artist['id']
+                if related_name not in artist_ids:
+                    artist_ids[related_name] = related_artist['id']
 
     for edge in edges:
         (u, v) = (edge['data']['source'], edge['data']['target'])
@@ -176,18 +169,21 @@ def get_graph_elements(time_range, threshold):
             weights[v] += get_weight(ranks[u])
 
         if weights[new_name] >= threshold:
-            nodes.append({'data': {'id': new_name, 'label': new_name + ' ' + str(weights[new_name]), 'size': get_size(MIN_RANK), 'weight': weights[new_name]}, 'classes': 'new'})
+            nodes.append({'data': {'id': new_name, 'label': new_name + ' ' + str(weights[new_name]), 'top': False, 
+                'size': get_size(MIN_RANK), 'weight': weights[new_name], 'activation': 0, 'selected': False}, 'classes': ''})
             edges += new_edges
+            # adjacency_list[new_name] = [edge['data']['target'] for edge in new_edges]
 
     for (rank, name) in enumerate(top_names):
-        nodes.append({'data': {'id': name, 'label': name + ' ' + str(weights[name]), 'size': get_size(rank), 'weight': weights[name]}, 'classes': 'top'})
+        nodes.append({'data': {'id': name, 'label': name + ' ' + str(weights[name]), 'size': get_size(rank), 'top': True, 
+            'weight': weights[name], 'activation': 0, 'selected': False}, 'classes': ''})
  
 
     if include_related_edges:
         node_names = [node['data']['id'] for node in nodes]
         for name in node_names:
             if name not in top_names:
-                for related_artist in sp.artist_related_artists(new_artist_ids[name])['artists']:
+                for related_artist in sp.artist_related_artists(artist_ids[name])['artists']:
                     related_name = related_artist['name']
                     if related_name in node_names and {'data': {'source': related_name, 'target': name}} not in edges:
                         edges.append({'data': {'source': name, 'target': related_name}})
@@ -281,6 +277,26 @@ graph = cyto.Cytoscape(
                 'width': '2px'
             }
         },
+        # {
+        #     'selector': '[activation = 0]',
+        #     'style': {
+        #         'background-color': 'yellow',
+        #         'text-outline-color': 'yellow'
+        #     }
+        # },
+        {
+            'selector': '.selected-edge',
+            'style': {
+                'line-color': '#f00'
+            }
+        },
+        # {
+        #     'selector': '.selected-node',
+        #     'style': {
+        #         'background-color': '#f00',
+        #         'text-outline-color': '#f00'
+        #     }
+        # },
         {
             'selector': '.selected-node',
             'style': {
@@ -289,31 +305,32 @@ graph = cyto.Cytoscape(
             }
         },
         {
-            'selector': '.selected-edge',
-            'style': {
-                'line-color': '#f00'
-            }
-        },
-        {
-            'selector': '.top',
+            'selector': '[top = True]',
             'style': {
                 'background-color': '#555',
                 'text-outline-color': '#555'
             }
         },
         {
-            'selector': '.new',
+            'selector': '[top = False]',
             'style': {
                 'background-color': '#00f',
                 'text-outline-color': '#00f'
             }
-        }
+        },
+        # {
+        #     'selector': '[activation >= 1]',
+        #     'style': {
+        #         'background-color': '#33C3F0',
+        #         'text-outline-color': '#000'
+        #     }
+        # }
     ]
 )
 
 
 expansion_marks = {}
-for i in range(1, 6):
+for i in range(1, 5):
     expansion_marks[i] = {'label': str(i)}
 
 exclude_dropdown_options = []
@@ -351,7 +368,7 @@ app.layout = html.Div(
                             min=0,
                             max=1000,
                             step=50,
-                            value=1000,
+                            value=300,
                             tooltip={'always_visible': True, 'placement': 'right'}
                         ),
                         html.Label(id='artist-search-label', htmlFor='artist-search-dropdown', children='Artist Search'),
@@ -400,13 +417,13 @@ app.layout = html.Div(
                             value=50,
                             tooltip={'always_visible': True, 'placement': 'left'}
                         ),
-                        html.Label(id='expansion-label', htmlFor='expansion-slider', children='Expansion Factor'),
+                        html.Label(id='expansion-label', htmlFor='expansion-slider', children='Expansion Depth'),
                         dcc.Slider(
                             id='expansion-slider',
-                            min=1,
-                            max=5,
+                            min=0,
+                            max=3,
                             step=1,
-                            value=3,
+                            value=1,
                             marks=expansion_marks
                         ),
                         dcc.Checklist(
@@ -416,7 +433,8 @@ app.layout = html.Div(
                            ]
                         ),
                         html.H6('Seeds'),
-                        html.P(id='seed-list', children=' '),
+                        html.Ul(id='seed-list', children=[]),
+                        # html.P(id='seed-list', children=' '),
                         html.Button('Initialize', id='initialize-btn', className='button-primary'),
                         html.Br(),
                         dcc.Input(
@@ -424,8 +442,8 @@ app.layout = html.Div(
                             type='text',
                             placeholder='Name your playlist...'
                         ),
-                        html.Ul(id='playlist', children=[]),
-                        html.Button('Save to Spotify', id='save-playlist-btn', className='button-primary'),
+                        html.Ul(id='playlist', children=[], className='display-none'),
+                        html.Button('Save to Spotify', id='save-playlist-btn', className='button-primary display-none'),
                     ]
                 )
             ]
@@ -451,7 +469,6 @@ def get_artist_tracks(artist_id):
         ]) for track in results['tracks']]
 
 
-
 @app.callback(
     Output('artist-search-dropdown', 'options'),
     [
@@ -470,28 +487,118 @@ def update_search_suggestions(search_value, value, options):
         return options
     
 
-
 @app.callback(
-    Output('artist-graph', 'elements'),
+    [
+        Output('artist-graph', 'elements'),
+        Output('seed-list', 'children'),
+        Output('artist-search-dropdown', 'value')
+    ],
     [
         Input('time-range-dropdown', 'value'),
-        Input('new-artist-threshold-slider', 'value')
+        Input('new-artist-threshold-slider', 'value'),
+        Input('artist-graph', 'tapNodeData'),
+        Input('expansion-slider', 'value')
+    ],
+    [
+        State('artist-graph', 'elements'),
+        State('seed-list', 'children'),
+        State('artist-search-dropdown', 'value')
     ])
-def update_artist_graph(time_range, threshold):
-    return get_graph_elements(time_range, threshold)
+def update_artist_graph(time_range, threshold, nodeData, expansion_depth, elements, seed_list, artist_search_value):
+    ctx = dash.callback_context
+    if ctx.triggered[0]['prop_id'] in ['new-artist-threshold-slider.value', 'time-range-dropdown.value']:
+        return get_graph_elements(time_range, threshold), seed_list, artist_search_value
+    elif ctx.triggered[0]['prop_id'] == 'artist-graph.tapNodeData':
+        seed = [node for node in elements if node['data']['id'] == nodeData['id']][0]
+        # print("Seed: {}".format(seed))
+        if choosing_seeds:
+            if seed['label'] in seed_list:
+                seed_list.remove(seed['label'])
+                seed['data']['activation'] = 0
+            else:
+                seed_list.append(seed['label'])
+                seed['data']['activation'] = 1
+            return elements, seed_list, artist_search_value
+        else:
+            if seed['data']['selected'] == False:
+                # seed['classes'] += ' selected-node'
+                seed['data']['selected'] = True
+                seed['classes'] = 'selected-node'
+                for elem in elements:
+                    if 'source' in elem['data']:
+                        if elem['data']['source'] == nodeData['id'] or elem['data']['target'] == nodeData['id']:
+                            elem['classes'] = 'selected-edge'
+                        elif elem['classes'] == 'selected-edge':
+                            elem['classes'] = ''
+                    elif 'id' in elem['data'] and elem['data']['id'] != seed['data']['id'] and elem['data']['selected'] == True:
+                        elem['data']['selected'] = False
+                        elem['classes'] = ''
+                        print("UNSELECT {}".format(elem))
+                return elements, seed_list, artist_ids[seed['data']['id']]
+            else:
+                seed['data']['selected'] = False
+                seed['classes'] = ''
+                for elem in elements:
+                    if 'source' in elem['data'] and elem['classes'] == 'selected-edge':
+                        elem['classes'] = ''
+                return elements, seed_list, ''
+        # print("Selected:")
+        # for node in elements:
+        #     if 'selected' in node['data'] and node['data']['selected']:
+        #         print(node)
+    else:
+        return get_graph_elements(time_range, threshold), seed_list, artist_search_value
 
-
-    
 
 @app.callback(
     Output('artist-tracks-list', 'children'),
     [
-        Input('artist-search-dropdown', 'value'),
+        Input('artist-search-dropdown', 'value')
     ])
 def update_artist_tracks(artist_id):
     if artist_id:
         return get_artist_tracks(artist_id)
+    # elif nodeData != None and choosing_seeds == False:
+    #     return get_artist_tracks(artist_ids[nodeData['id']])
 
+
+@app.callback(
+    Output('playlist-maker', 'className'),
+    [
+        Input('new-playlist-btn', 'n_clicks'),
+    ])
+def new_playlist(n_clicks):
+    print(n_clicks)
+    if n_clicks == 0 or n_clicks == None:
+        choosing_seeds = False
+        print("zero clicks")
+        return 'display-none'
+    elif n_clicks == 1:
+        choosing_seeds = True
+        return ''
+    
+    
+
+# @app.callback(
+#     [
+#         Output('playlist', 'children'),
+#         Output('save-playlist-btn', 'style'),
+#     ],
+#     [
+#         Input('initialize-btn', 'n_clicks'),
+#     ])
+# def init_playlist(n_clicks):
+#     assert(choosing_seeds)
+#     if n_clicks == 1:
+#         choosing_seeds = False
+
+
+# @app.callback(
+#     Output('artist-graph', 'elements'),
+#     [Input('artist-graph', 'tapNodeData')],
+#     [State('artist-graph', 'elements')])
+# def node_select(data, elements):
+#     return elements
 
 
 # @app.callback(

@@ -256,9 +256,18 @@ input[type="button"].button-primary:focus {
 
 audio {
   width: 180px;
-  height: 20px;
+  height: 16px;
   font-size: x-small;
   margin-top: 5px;
+}
+
+audio::-webkit-media-controls-play-button {
+  /* width: 50px;
+  height: 50px; */
+  /* color: white;
+  background-color: #0FA0CE; */
+  /* background-color: blue;
+  color: red; */
 }
 
 
@@ -269,7 +278,7 @@ audio::-webkit-media-controls-timeline-container {
 }
 
 audio::-webkit-media-controls-timeline {
-  min-width: 80px;
+  width: 80px;
 }
 
 audio::-webkit-media-controls-mute-button, audio::-webkit-media-controls-volume-slider, 
@@ -279,16 +288,18 @@ audio::-webkit-media-controls-volume-slider-container {
   margin: 0px;
   padding: 0px;
   display: none;
-  visibility: hidden;
 }
 
 audio::-webkit-media-controls-enclosure {
-  background-color: #b4b4b4;
+  background-color: rgba(180, 180, 180, 0.4);
 }
 
 
 audio::-webkit-media-controls-current-time-display, audio::-webkit-media-controls-time-remaining-display {
   font-size: small;
+  background-color: inherit;
+  text-shadow: none;
+  color: white;
 }
 
 
@@ -304,7 +315,7 @@ audio::-webkit-media-controls-current-time-display, audio::-webkit-media-control
 
 
 body{
-  background-color: #1a1c23;
+  background-color: black;
   color: #b2b2b2;
   height: 100vh;
   margin: 0;
@@ -393,31 +404,41 @@ div.Select-value, .Select-control,div.period, .Select-input{
 #artist-tracks-list {
   list-style-type: none;
   padding: 0px;
-  height: 400px;
+  height: 480px;
   overflow-y: auto;
+  margin-left: -20px;
+  margin-right: -20px;
+  /* border-top: 1px solid rgba(180, 180, 180, 0.4); */
 }
 
 
 #artist-tracks-list li {
   border-bottom: 1px solid rgba(180, 180, 180, 0.4);
-  padding: 8px 5px;
+  padding: 5px 5px;
+  padding-left: 20px;
 }
 
+#artist-tracks-list li:first-child {
+  border-top: 1px solid rgba(180, 180, 180, 0.4);
+}
+
+
 .track-name {
-  font-size: medium;
+  font-size: 14px;
   color: white;
-  margin-bottom: 5px;
+  margin-bottom: 0px;
 }
 
 .track-artists {
-  font-size: smaller;
+  font-size: 12px;
   margin: 0px;
   padding: 0px;
+  color: #b4b4b4;
 }
 
 
 #artist-tracks-list li:hover {
-  background-color: rgba(180, 180, 180, 0.4);
+  background-color: #444;
 }
 
 
@@ -451,3 +472,6 @@ div.Select-value, .Select-control,div.period, .Select-input{
   margin-top: 20px;
 }
 
+.display-none {
+  display: none;
+}
