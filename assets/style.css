@@ -313,7 +313,6 @@ audio::-webkit-media-controls-current-time-display, audio::-webkit-media-control
 
 
 
-
 body{
   background-color: black;
   color: #b2b2b2;
@@ -471,4 +470,22 @@ div.Select-value, .Select-control,div.period, .Select-input{
 
 .display-none {
   display: none;
+}
+
+
+/* #seed-list {
+  display: inline;
+  list-style: none;
+} */
+
+#seed-list li {
+  display: inline;
+}
+
+#seed-list li:after {
+  content: ", ";
+}
+
+#seed-list li:last-child:after {
+  content: "";
 }

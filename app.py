@@ -118,7 +118,7 @@ weight_baseline = 10
 size_baseline = 30
 default_time_range = 'medium_term'
 # top_names = [] # fix this by not having to use in the node hover update (modify CSS styling)
-choosing_seeds = False
+# choosing_seeds = False
 seeds = []
 # adjacency_list = {}
 artist_ids = {}
@@ -168,12 +168,12 @@ def get_graph_elements(time_range, threshold):
             weights[v] += get_weight(ranks[u])
 
         if weights[new_name] >= threshold:
-            nodes.append({'data': {'id': new_name, 'label': new_name + ' ' + str(weights[new_name]),
+            nodes.append({'data': {'id': new_name, 'label': new_name,
                 'size': get_size(MIN_RANK), 'weight': weights[new_name], 'activation': 0, 'selected': False, 'top': False}, 'classes': 'new'})
             edges += new_edges
 
     for (rank, name) in enumerate(top_names):
-        nodes.append({'data': {'id': name, 'label': name + ' ' + str(weights[name]), 'size': get_size(rank),
+        nodes.append({'data': {'id': name, 'label': name, 'size': get_size(rank),
             'weight': weights[name], 'activation': 0, 'selected': False, 'top': True}, 'classes': 'top'})
  
 
@@ -302,8 +302,8 @@ graph = cyto.Cytoscape(
         {
             'selector': '.selected-node',
             'style': {
-                'background-color': '#f00',
-                'text-outline-color': '#f00'
+                'background-color': '#f00000',
+                'text-outline-color': '#f00000'
             }
         },
         {
@@ -316,17 +316,17 @@ graph = cyto.Cytoscape(
         {
             'selector': '.new',
             'style': {
-                'background-color': 'rgb(19, 157, 255)',
-                'text-outline-color': 'rgb(19, 157, 255)'
+                'background-color': 'green',
+                'text-outline-color': 'green'
             }
         },
-        # {
-        #     'selector': '[activation >= 1]',
-        #     'style': {
-        #         'background-color': '#33C3F0',
-        #         'text-outline-color': '#000'
-        #     }
-        # }
+        {
+            'selector': '[activation >= 1]',
+            'style': {
+                'background-color': '#33C3F0',
+                'text-outline-color': '#000'
+            }
+        }
     ]
 )
 
@@ -371,7 +371,7 @@ app.layout = html.Div(
                             max=1000,
                             step=50,
                             value=300,
-                            tooltip={'always_visible': True, 'placement': 'right'}
+                            tooltip={'always_visible': False, 'placement': 'right'}
                         ),
                         html.Label(id='artist-search-label', htmlFor='artist-search-dropdown', children='Artist Search'),
                         dcc.Dropdown(
@@ -417,7 +417,7 @@ app.layout = html.Div(
                             max=200,
                             step=25,
                             value=50,
-                            tooltip={'always_visible': True, 'placement': 'left'}
+                            tooltip={'always_visible': False, 'placement': 'right'}
                         ),
                         html.Label(id='expansion-label', htmlFor='expansion-slider', children='Expansion Depth'),
                         dcc.Slider(
@@ -434,8 +434,8 @@ app.layout = html.Div(
                                {'label': 'Exclude tracks in your current playlists', 'value': 1}
                            ]
                         ),
-                        html.H6('Seeds'),
-                        html.Ul(id='seed-list', children=[]),
+                        html.H6('Seeds', id='seed-header', className=''),
+                        html.P(id='seed-list', children=[]),
                         # html.P(id='seed-list', children=' '),
                         html.Button('Initialize', id='initialize-btn', className='button-primary'),
                         html.Br(),
@@ -452,6 +452,8 @@ app.layout = html.Div(
         )
     ]
 )
+
+
 
 
 
@@ -512,26 +514,37 @@ def old_class(elem):
         Input('time-range-dropdown', 'value'),
         Input('new-artist-threshold-slider', 'value'),
         Input('artist-graph', 'tapNodeData'),
-        Input('expansion-slider', 'value')
+        Input('seed-header', 'className')
+        # Input('expansion-slider', 'value')
     ],
     [
         State('artist-graph', 'elements'),
         State('seed-list', 'children'),
         State('artist-search-dropdown', 'value')
     ])
-def update_artist_graph(time_range, threshold, nodeData, expansion_depth, elements, seed_list, artist_search_value):
+def update_artist_graph(time_range, threshold, node_data, seed_header_class, elements, seed_list, artist_search_value):
     ctx = dash.callback_context
-    if ctx.triggered[0]['prop_id'] in ['new-artist-threshold-slider.value', 'time-range-dropdown.value']:
+    print("context: {}".format(ctx.triggered))
+    if ctx.triggered[0]['prop_id'] in ['new-artist-threshold-slider.value', 'time-range-dropdown.value'] or \
+        (ctx.triggered[0]['prop_id'] == 'seed-header.className' and ctx.triggered[0]['value'] == ''):
         return get_graph_elements(time_range, threshold), seed_list, artist_search_value
     elif ctx.triggered[0]['prop_id'] == 'artist-graph.tapNodeData':
-        seed = [node for node in elements if node['data']['id'] == nodeData['id']][0]
+        seed = [node for node in elements if node['data']['id'] == node_data['id']][0]
         # print("Seed: {}".format(seed))
+        choosing_seeds = (seed_header_class == 'choosing-seeds')
+        print("choosing_seeds: {}".format(choosing_seeds))
         if choosing_seeds:
-            if seed['label'] in seed_list:
-                seed_list.remove(seed['label'])
+            if len([elem for elem in seed_list if elem['props']['children'] == seed['data']['label']]) > 0:
+                seed_list = [elem for elem in seed_list if elem['props']['children'] != seed['data']['label']]
+                # seed_list.remove(seed['data']['label'])
                 seed['data']['activation'] = 0
             else:
-                seed_list.append(seed['label'])
+                new_elem = html.Li(seed['data']['label'], id=seed['data']['label'])
+                # print(new_elem == seed['data']['label'])
+                seed_list.append(new_elem)
+                # print("adding {}".format(new_elem))
+                # print("id: {}".format(new_elem.id))
+                # print(seed_list)
                 seed['data']['activation'] = 1
             return elements, seed_list, artist_search_value
         else:
@@ -541,19 +554,19 @@ def update_artist_graph(time_range, threshold, nodeData, expansion_depth, elemen
                 seed['classes'] = 'selected-node'
                 for elem in elements:
                     if 'source' in elem['data']:
-                        if elem['data']['source'] == nodeData['id'] or elem['data']['target'] == nodeData['id']:
+                        if elem['data']['source'] == node_data['id'] or elem['data']['target'] == node_data['id']:
                             elem['classes'] = 'selected-edge'
                         elif elem['classes'] == 'selected-edge':
                             elem['classes'] = old_class(elem)
                     elif 'label' in elem['data'] and elem['data']['id'] != seed['data']['id'] and elem['data']['selected'] == True:
                         elem['data']['selected'] = False
                         elem['classes'] = old_class(elem)
-                        print("UNSELECT {}".format(elem))
+                        # print("UNSELECT {}".format(elem))
                 return elements, seed_list, artist_ids[seed['data']['id']]
             else:
                 seed['data']['selected'] = False
                 seed['classes'] = old_class(seed)
-                print("UNSELECT {}".format(seed))
+                # print("UNSELECT {}".format(seed))
                 for elem in elements:
                     if 'source' in elem['data'] and elem['classes'] == 'selected-edge':
                         elem['classes'] = old_class(elem)
@@ -563,7 +576,7 @@ def update_artist_graph(time_range, threshold, nodeData, expansion_depth, elemen
         #     if 'selected' in node['data'] and node['data']['selected']:
         #         print(node)
     else:
-        return get_graph_elements(time_range, threshold), seed_list, artist_search_value
+        return elements, seed_list, artist_search_value
 
 
 @app.callback(
@@ -579,19 +592,22 @@ def update_artist_tracks(artist_id):
 
 
 @app.callback(
-    Output('playlist-maker', 'className'),
+    [
+        Output('playlist-maker', 'className'),
+        Output('seed-header', 'className'),
+    ],
     [
         Input('new-playlist-btn', 'n_clicks'),
     ])
 def new_playlist(n_clicks):
     print(n_clicks)
     if n_clicks == 0 or n_clicks == None:
-        choosing_seeds = False
+        # choosing_seeds = False
         print("zero clicks")
-        return 'display-none'
+        return 'display-none', ''
     elif n_clicks == 1:
-        choosing_seeds = True
-        return ''
+        # choosing_seeds = True
+        return '', 'choosing-seeds'
     
     
 
