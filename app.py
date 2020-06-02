@@ -400,12 +400,12 @@ app.layout = html.Div(
         html.Div(
             className='right-panel',
             children=[
-                html.Div(
-                    id='playlist-header',
-                    children=[
-                        html.H3(id='playlist-title-header', children='Playlist Maker')
-                    ]
-                ),
+                # html.Div(
+                #     id='playlist-header',
+                #     children=[
+                #         html.H3(id='playlist-title-header', children='Playlist Maker')
+                #     ]
+                # ),
                 html.Button('New Playlist', id='new-playlist-btn', className='button-primary'),
                 html.Div(
                     id='playlist-maker',
@@ -435,9 +435,9 @@ app.layout = html.Div(
                            ]
                         ),
                         html.H6('Seeds', id='seed-header', className=''),
-                        html.P(id='seed-list', children=[]),
-                        # html.P(id='seed-list', children=' '),
+                        html.Div(id='seed-list', children=[]),
                         html.Button('Initialize', id='initialize-btn', className='button-primary'),
+                        html.Button('Cancel', id='cancel-btn', className='button-danger'),
                         html.Br(),
                         dcc.Input(
                             id='playlist-name',
@@ -481,8 +481,6 @@ def get_artist_tracks(artist_id):
     ],
     [State('artist-search-dropdown', 'options')])
 def update_search_suggestions(search_value, value, options):
-    # print("Search value: {}".format(search_value))
-    # print("Value: {}".format(value))
     if search_value:
         return get_search_suggestions(search_value)
     elif value:
@@ -498,7 +496,6 @@ def old_class(elem):
         if elem['data']['top']:
             return 'top'
         else:
-            print("{} not in top".format(elem))
             return 'new'
     else:
         return ''
@@ -520,15 +517,16 @@ def old_class(elem):
     [
         State('artist-graph', 'elements'),
         State('seed-list', 'children'),
-        State('artist-search-dropdown', 'value')
+        State('artist-search-dropdown', 'value'),
+        
     ])
 def update_artist_graph(time_range, threshold, node_data, seed_header_class, elements, seed_list, artist_search_value):
     ctx = dash.callback_context
     print("context: {}".format(ctx.triggered))
-    if ctx.triggered[0]['prop_id'] in ['new-artist-threshold-slider.value', 'time-range-dropdown.value'] or \
-        (ctx.triggered[0]['prop_id'] == 'seed-header.className' and ctx.triggered[0]['value'] == ''):
+    trigger = ctx.triggered[0]
+    if trigger['value'] == None or trigger['prop_id'] in ['new-artist-threshold-slider.value', 'time-range-dropdown.value']:
         return get_graph_elements(time_range, threshold), seed_list, artist_search_value
-    elif ctx.triggered[0]['prop_id'] == 'artist-graph.tapNodeData':
+    elif trigger['prop_id'] == 'artist-graph.tapNodeData':
         seed = [node for node in elements if node['data']['id'] == node_data['id']][0]
         # print("Seed: {}".format(seed))
         choosing_seeds = (seed_header_class == 'choosing-seeds')
@@ -539,7 +537,7 @@ def update_artist_graph(time_range, threshold, node_data, seed_header_class, ele
                 # seed_list.remove(seed['data']['label'])
                 seed['data']['activation'] = 0
             else:
-                new_elem = html.Li(seed['data']['label'], id=seed['data']['label'])
+                new_elem = html.P(seed['data']['label'], id=seed['data']['label'])
                 # print(new_elem == seed['data']['label'])
                 seed_list.append(new_elem)
                 # print("adding {}".format(new_elem))
@@ -561,12 +559,12 @@ def update_artist_graph(time_range, threshold, node_data, seed_header_class, ele
                     elif 'label' in elem['data'] and elem['data']['id'] != seed['data']['id'] and elem['data']['selected'] == True:
                         elem['data']['selected'] = False
                         elem['classes'] = old_class(elem)
-                        # print("UNSELECT {}".format(elem))
+                        print("UNSELECT {}".format(elem))
                 return elements, seed_list, artist_ids[seed['data']['id']]
             else:
                 seed['data']['selected'] = False
                 seed['classes'] = old_class(seed)
-                # print("UNSELECT {}".format(seed))
+                print("UNSELECT {}".format(seed))
                 for elem in elements:
                     if 'source' in elem['data'] and elem['classes'] == 'selected-edge':
                         elem['classes'] = old_class(elem)
@@ -575,6 +573,12 @@ def update_artist_graph(time_range, threshold, node_data, seed_header_class, ele
         # for node in elements:
         #     if 'selected' in node['data'] and node['data']['selected']:
         #         print(node)
+    elif trigger['prop_id'] == 'seed-header.className' and trigger['value'] == '':
+        seed_list = []
+        for elem in elements:
+            if elem['data']['activation'] > 0:
+                elem['data']['activation'] = 0
+        return elements, seed_list, artist_search_value
     else:
         return elements, seed_list, artist_search_value
 
@@ -587,8 +591,6 @@ def update_artist_graph(time_range, threshold, node_data, seed_header_class, ele
 def update_artist_tracks(artist_id):
     if artist_id:
         return get_artist_tracks(artist_id)
-    # elif nodeData != None and choosing_seeds == False:
-    #     return get_artist_tracks(artist_ids[nodeData['id']])
 
 
 @app.callback(
@@ -598,16 +600,53 @@ def update_artist_tracks(artist_id):
     ],
     [
         Input('new-playlist-btn', 'n_clicks'),
+        Input('cancel-btn', 'n_clicks')
+    ],
+    [
+        State('playlist-maker', 'className'),
+        State('seed-header', 'className'),
+        State('seed-list', 'children')
     ])
-def new_playlist(n_clicks):
-    print(n_clicks)
-    if n_clicks == 0 or n_clicks == None:
-        # choosing_seeds = False
-        print("zero clicks")
-        return 'display-none', ''
-    elif n_clicks == 1:
-        # choosing_seeds = True
-        return '', 'choosing-seeds'
+def toggle_new_playlist(playlist_clicks, cancel_clicks, playlist_maker_class, seed_header_class, seed_list):
+    ctx = dash.callback_context
+    choosing_seeds = (seed_header_class == 'choosing-seeds')
+    print("new playlist clicks: {}".format(playlist_clicks))
+    print("cancel clicks: {}".format(cancel_clicks))
+    if ctx.triggered[0]['prop_id'] == 'new-playlist-btn.n_clicks':
+        if playlist_clicks == 0 or playlist_clicks == None:
+            return 'display-none', ''
+        elif playlist_clicks >= 1 and not choosing_seeds:
+            return '', 'choosing-seeds'
+        else:
+            return playlist_maker_class, seed_header_class
+    else:
+        if cancel_clicks == 0 or cancel_clicks == None or (cancel_clicks >= 1 and choosing_seeds):
+            seed_list = []
+            return 'display-none', ''
+        else:
+            return playlist_maker_class, seed_header_class
+
+
+# @app.callback(
+#     [
+#         Output('playlist-maker', 'className'),
+#         Output('seed-header', 'className'),
+#     ],
+#     [
+#         Input('cancel-btn', 'n_clicks'),
+#     ],
+#     [
+#         State('playlist-maker', 'className'),
+#         State('seed-header', 'className'),
+#     ])
+# def cancel(n_clicks, playlist_maker_class, seed_header_class):
+#     print("cancel clicks: {}".format(n_clicks))
+#     if n_clicks == 0 or n_clicks == None:
+#         # choosing_seeds = False
+#         return playlist_maker_class, seed_header_class
+#     elif n_clicks == 1:
+#         # choosing_seeds = True
+#         return 'display-none', ''
     
     
 
