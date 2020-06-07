@@ -479,6 +479,38 @@ def get_artist_tracks(artist_id):
         ]) for track in results['tracks']]
 
 
+def old_class(elem):
+    if 'label' in elem['data']:
+        if elem['data']['top']:
+            return 'top'
+        else:
+            return 'new'
+    else:
+        return ''
+
+
+def is_node(elem):
+    return 'label' in elem['data']
+
+
+def initialize_playlist(elements, playlist_size, exclude_tracks):
+    adjacency_list = defaultdict(lambda: [])
+    for elem in elements:
+        if not is_node(elem):
+            (source, target) = (elem['data']['source'], elem['data']['target'])
+            adjacency_list[source].append(target)
+        elif elem['data']['id'] not in adjacency_list:
+            adjacency_list[elem['data']['id']] = []
+    print("seeds:")
+    for elem in elements:
+        if is_node(elem) and elem['data']['activation'] == 1:
+            print(elem['data']['label'])
+    print("adjacency list:")
+    print(adjacency_list)
+    return []
+
+
+
 @app.callback(
     Output('artist-search-dropdown', 'options'),
     [
@@ -495,16 +527,6 @@ def update_search_suggestions(search_value, value, options):
         return options
     
 
-
-
-def old_class(elem):
-    if 'label' in elem['data']:
-        if elem['data']['top']:
-            return 'top'
-        else:
-            return 'new'
-    else:
-        return ''
 
 
 @app.callback(
@@ -556,12 +578,12 @@ def update_artist_graph(time_range, threshold, node_data, elements, seed_list, a
                 seed['data']['selected'] = True
                 seed['classes'] = 'selected-node'
                 for elem in elements:
-                    if 'source' in elem['data']:
+                    if not is_node(elem):
                         if elem['data']['source'] == node_data['id'] or elem['data']['target'] == node_data['id']:
                             elem['classes'] = 'selected-edge'
                         elif elem['classes'] == 'selected-edge':
                             elem['classes'] = old_class(elem)
-                    elif 'label' in elem['data'] and elem['data']['id'] != seed['data']['id'] and elem['data']['selected'] == True:
+                    elif elem['data']['id'] != seed['data']['id'] and elem['data']['selected'] == True:
                         elem['data']['selected'] = False
                         elem['classes'] = old_class(elem)
                         # print("UNSELECT {}".format(elem))
@@ -571,7 +593,7 @@ def update_artist_graph(time_range, threshold, node_data, elements, seed_list, a
                 seed['classes'] = old_class(seed)
                 # print("UNSELECT {}".format(seed))
                 for elem in elements:
-                    if 'source' in elem['data'] and elem['classes'] == 'selected-edge':
+                    if not is_node(elem) and elem['classes'] == 'selected-edge':
                         elem['classes'] = old_class(elem)
                 return elements, seed_list, ''
         # print("Selected:")
@@ -601,23 +623,39 @@ def update_artist_tracks(artist_id):
     ],
     [
         Input('new-playlist-btn', 'n_clicks'),
-        Input('initialize-btn', 'n_clicks')
+        Input('initialize-btn', 'n_clicks'),
+        Input('playlist-size-slider', 'value'),
+        Input('exclude-playlist-tracks', 'value')
     ],
     [
         State('playlist-maker', 'className'),
         State('seed-header', 'className'),
-        State('seed-list', 'children')
+        # State('seed-list', 'children'),
+        State('playlist-view', 'className'),
+        State('playlist', 'children'),
+        State('artist-graph', 'elements'),
     ])
-def toggle_playlist(playlist_clicks, initialize_clicks, playlist_maker_class, seed_header_class, seed_list):
-    print("new playlist clicks: {}".format(playlist_clicks))
-    if playlist_clicks == 0 or playlist_clicks == None:
-        return 'display-none', ''
-    elif playlist_clicks == 1:
-        return '', 'choosing-seeds'
-    else:
-        return playlist_maker_class, seed_header_class
+def toggle_playlist(playlist_clicks, initialize_clicks, playlist_size, exclude_tracks, playlist_maker_class, seed_header_class, playlist_view_class, playlist_children, elements):
+    ctx = dash.callback_context
+    trigger = ctx.triggered[0]
+    print("trigger: {}".format(ctx.triggered))
+    # print("new playlist clicks: {}".format(playlist_clicks))
+    if trigger['prop_id'] == '.':
+        return 'display-none', '', 'display-none', []
+    elif trigger['prop_id'] == 'new-playlist-btn.n_clicks':
+        if playlist_clicks == 1:
+            return '', 'choosing-seeds', 'display-none', []
+        else:
+            return playlist_maker_class, seed_header_class, playlist_view_class, playlist_children
+    elif trigger['prop_id'] == 'initialize-btn.n_clicks':
+        if initialize_clicks == 1:
+            # initialize playlist
+            playlist = initialize_playlist(elements, playlist_size, exclude_tracks)
+            return '', '', '', playlist
 
+    return playlist_maker_class, seed_header_class, playlist_view_class, playlist_children
 
+        
 
     
     
