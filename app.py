@@ -116,6 +116,7 @@ include_related_edges = False
 default_weight_threshold = 200
 weight_baseline = 10
 size_baseline = 30
+size_multiplier = 1
 default_time_range = 'medium_term'
 # top_names = [] # fix this by not having to use in the node hover update (modify CSS styling)
 # choosing_seeds = False
@@ -126,7 +127,7 @@ artist_ids = {}
 def get_weight(rank):
     return -rank + MIN_RANK + weight_baseline
 def get_size(rank):
-    return -rank + MIN_RANK + size_baseline
+    return ((-rank + MIN_RANK) * size_multiplier) + size_baseline
 
 
 def get_graph_elements(time_range, threshold):
@@ -224,9 +225,9 @@ cose_medium3 = {
     'name': 'cose',
     'animate': False,
     'randomize': True, 
-    'edgeElasticity': 200, 
-    'nodeRepulsion': 2000000,
-    'nodeOverlap': 2000000,
+    'edgeElasticity': 100, 
+    'nodeRepulsion': 1000000,
+    'nodeOverlap': 1000000,
     'gravity': 40,
     'componentSpacing': 200,
     'nodeDimensionsIncludeLabels': True
