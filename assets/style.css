@@ -60,7 +60,7 @@ are based on 10px sizing. So basically 1.5rem = 15px :) */
 html {
   font-size: 62.5%; }
 body {
-  font-size: 1.5em; /* currently ems cause chrome bug misinterpreting rems on body element */
+  font-size: 14px; /* currently ems cause chrome bug misinterpreting rems on body element */
   line-height: 1.6;
   font-weight: 400;
   font-family: "Open Sans", "HelveticaNeue", "Helvetica Neue", Helvetica, Arial, sans-serif;
@@ -334,9 +334,11 @@ audio::-webkit-media-controls-current-time-display, audio::-webkit-media-control
 } */
 
 
+/* label {
+  font-size: 16px;
+} */
 
-
-body{
+body {
   background-color: black;
   color: #b2b2b2;
   height: 100vh;
@@ -424,24 +426,37 @@ div.Select-value, .Select-control,div.period, .Select-input{
 }
 
 
-#artist-tracks-list {
+
+
+
+.track-list {
   list-style-type: none;
   padding: 0px;
-  height: 480px;
+  
   overflow-y: auto;
   margin-left: -20px;
   margin-right: -20px;
   /* border-top: 1px solid rgba(180, 180, 180, 0.4); */
+  margin-bottom: 0;
+}
+
+#artist-tracks-list {
+  height: 60vh;
+}
+
+#playlist {
+  height: 70vh;
 }
 
 
-#artist-tracks-list li {
+
+.track-list li {
   border-bottom: 1px solid rgba(180, 180, 180, 0.4);
   padding: 5px 5px;
   padding-left: 20px;
 }
 
-#artist-tracks-list li:first-child {
+.track-list li:first-child {
   border-top: 1px solid rgba(180, 180, 180, 0.4);
 }
 
@@ -510,6 +525,7 @@ div.Select-value, .Select-control,div.period, .Select-input{
 
 #seed-list p {
   display: inline;
+  font-size: 14px;
 }
 
 #seed-list p:after {
@@ -523,4 +539,12 @@ div.Select-value, .Select-control,div.period, .Select-input{
 
 #playlist-name {
   width: 100%;
+}
+
+#save-playlist-btn {
+  margin-top: 10px;
+}
+
+#playlist-name {
+  font-size: 16px;
 }

@@ -379,7 +379,7 @@ app.layout = html.Div(
                             options=[],
                             placeholder='Search for an artist...'
                         ),
-                        html.Ul(id='artist-tracks-list', children=[]),
+                        html.Ul(id='artist-tracks-list', className='track-list', children=[]),
                         # html.Div(
                         #     id='artist-tracks',
                         #     children=[
@@ -410,35 +410,40 @@ app.layout = html.Div(
                 html.Div(
                     id='playlist-maker',
                     children=[
-                        html.Label(id='playlist-size-label', htmlFor='playlist-size-slider', children='Playlist Size'),
-                        dcc.Slider(
-                            id='playlist-size-slider',
-                            min=25,
-                            max=200,
-                            step=25,
-                            value=50,
-                            tooltip={'always_visible': False, 'placement': 'right'}
+                        html.Div(
+                            id='playlist-form',
+                            children=[
+                                html.Label(id='playlist-size-label', htmlFor='playlist-size-slider', children='Playlist Size'),
+                                dcc.Slider(
+                                    id='playlist-size-slider',
+                                    min=25,
+                                    max=200,
+                                    step=25,
+                                    value=50,
+                                    tooltip={'always_visible': False, 'placement': 'right'}
+                                ),
+                                html.Label(id='expansion-label', htmlFor='expansion-slider', children='Expansion Depth'),
+                                dcc.Slider(
+                                    id='expansion-slider',
+                                    min=0,
+                                    max=3,
+                                    step=1,
+                                    value=1,
+                                    marks=expansion_marks
+                                ),
+                                dcc.Checklist(
+                                id='exclude-playlist-tracks',
+                                options=[
+                                    {'label': 'Exclude tracks in your current playlists', 'value': 1}
+                                ]
+                                ),
+                                html.H6('Seeds', id='seed-header', className=''),
+                                html.Div(id='seed-list', children=[]),
+                                html.Button('Initialize', id='initialize-btn', className='button-primary'),
+                                # html.Button('Cancel', id='cancel-btn', className='button-danger'),
+                                html.Br()
+                            ]
                         ),
-                        html.Label(id='expansion-label', htmlFor='expansion-slider', children='Expansion Depth'),
-                        dcc.Slider(
-                            id='expansion-slider',
-                            min=0,
-                            max=3,
-                            step=1,
-                            value=1,
-                            marks=expansion_marks
-                        ),
-                        dcc.Checklist(
-                           id='exclude-playlist-tracks',
-                           options=[
-                               {'label': 'Exclude tracks in your current playlists', 'value': 1}
-                           ]
-                        ),
-                        html.H6('Seeds', id='seed-header', className=''),
-                        html.Div(id='seed-list', children=[]),
-                        html.Button('Initialize', id='initialize-btn', className='button-primary'),
-                        # html.Button('Cancel', id='cancel-btn', className='button-danger'),
-                        html.Br(),
                         html.Div(
                             id='playlist-view',
                             className='display-none',
@@ -448,8 +453,10 @@ app.layout = html.Div(
                                     type='text',
                                     placeholder='Name your playlist...'
                                 ),
-                                html.Ul(id='playlist', children=[]),
-                                html.Button('Save to Spotify', id='save-playlist-btn', className='button-primary')
+                                html.Ul(id='playlist', className='track-list', children=[]),
+                                html.H6(id='playlist-size'),
+                                html.Button('Save to Spotify', id='save-playlist-btn', className='button-primary'),
+                                html.H6(id='confirm-save')
                             ]
                         )
                     ]
@@ -469,12 +476,13 @@ def get_search_suggestions(text):
     return [{'label': artist['name'], 'value': artist['id']} for artist in results['artists']['items']]
 
 
-def get_artist_tracks(artist_id):
+def get_top_tracks(artist_id):
     results = sp.artist_top_tracks(artist_id)
     return [html.Li(
         children=[
             html.P(className='track-name', children=track['name']),
             html.P(className='track-artists', children=', '.join([artist['name'] for artist in track['artists']])),
+            html.P(className='track-id display-none', children=track['id']),
             html.Audio(className='track-audio', src=track['preview_url'], controls='controls')
         ]) for track in results['tracks']]
 
@@ -491,23 +499,40 @@ def old_class(elem):
 
 def is_node(elem):
     return 'label' in elem['data']
+    
 
 
-def initialize_playlist(elements, playlist_size, exclude_tracks):
-    adjacency_list = defaultdict(lambda: [])
+def initialize_playlist(elements, playlist_size, expansion_depth, exclude_tracks):
+    adjacency_list = {}    
+    for elem in elements:
+        if is_node(elem):
+            adjacency_list[elem['data']['id']] = (elem, [])    
     for elem in elements:
         if not is_node(elem):
             (source, target) = (elem['data']['source'], elem['data']['target'])
-            adjacency_list[source].append(target)
-        elif elem['data']['id'] not in adjacency_list:
-            adjacency_list[elem['data']['id']] = []
-    print("seeds:")
-    for elem in elements:
-        if is_node(elem) and elem['data']['activation'] == 1:
-            print(elem['data']['label'])
-    print("adjacency list:")
-    print(adjacency_list)
-    return []
+            adjacency_list[source][1].append(target)
+    
+    seeds = [key for (key, value) in adjacency_list.items() if value[0]['data']['activation'] == 1]
+    # songs_dict = {}
+    songs_per_artist = math.ceil(playlist_size / len(seeds))
+    playlist = []
+    for seed in seeds:
+        playlist += get_top_tracks(artist_ids[seed])[:songs_per_artist]
+
+    return playlist
+
+
+    # for seed in seeds:
+    #     artist_queue = [seed]
+
+    # while len(seeds) > 0:
+    #     artist = seeds.pop()
+    #     node = adjacency_list[artist]
+    #     activation = node[0]['data']['activation']
+    #     for other_artist in node[1]:
+    #         adjacency_list[other_artist][0]['data']['activation'] += (activation / 2)
+            
+
 
 
 
@@ -528,6 +553,16 @@ def update_search_suggestions(search_value, value, options):
     
 
 
+@app.callback(
+    Output('artist-tracks-list', 'children'),
+    [
+        Input('artist-search-dropdown', 'value')
+    ])
+def update_artist_tracks(artist_id):
+    if artist_id:
+        return get_top_tracks(artist_id)
+
+
 
 @app.callback(
     [
@@ -539,7 +574,6 @@ def update_search_suggestions(search_value, value, options):
         Input('time-range-dropdown', 'value'),
         Input('new-artist-threshold-slider', 'value'),
         Input('artist-graph', 'tapNodeData')
-        # Input('expansion-slider', 'value')
     ],
     [
         State('artist-graph', 'elements'),
@@ -604,109 +638,73 @@ def update_artist_graph(time_range, threshold, node_data, elements, seed_list, a
         return elements, seed_list, artist_search_value
 
 
-@app.callback(
-    Output('artist-tracks-list', 'children'),
-    [
-        Input('artist-search-dropdown', 'value')
-    ])
-def update_artist_tracks(artist_id):
-    if artist_id:
-        return get_artist_tracks(artist_id)
 
 
 @app.callback(
     [
-        Output('playlist-maker', 'className'),
+        Output('playlist-form', 'className'),
         Output('seed-header', 'className'),
         Output('playlist-view', 'className'),
-        Output('playlist', 'children')
+        Output('new-playlist-btn', 'className'),
+        Output('playlist', 'children'),
+        Output('playlist-size', 'children')
     ],
     [
         Input('new-playlist-btn', 'n_clicks'),
         Input('initialize-btn', 'n_clicks'),
         Input('playlist-size-slider', 'value'),
-        Input('exclude-playlist-tracks', 'value')
+        Input('exclude-playlist-tracks', 'value'),
+        Input('expansion-slider', 'value')
     ],
     [
         State('playlist-maker', 'className'),
         State('seed-header', 'className'),
-        # State('seed-list', 'children'),
         State('playlist-view', 'className'),
+        State('new-playlist-btn', 'className'),
         State('playlist', 'children'),
         State('artist-graph', 'elements'),
+        
     ])
-def toggle_playlist(playlist_clicks, initialize_clicks, playlist_size, exclude_tracks, playlist_maker_class, seed_header_class, playlist_view_class, playlist_children, elements):
+def toggle_playlist(playlist_clicks, initialize_clicks, playlist_size, exclude_tracks, expansion_depth, playlist_form_class, seed_header_class, playlist_view_class, new_playlist_btn_class, playlist_children, elements):
     ctx = dash.callback_context
     trigger = ctx.triggered[0]
     print("trigger: {}".format(ctx.triggered))
     # print("new playlist clicks: {}".format(playlist_clicks))
     if trigger['prop_id'] == '.':
-        return 'display-none', '', 'display-none', []
+        return 'display-none', '', 'display-none', 'button-primary', [], ''
     elif trigger['prop_id'] == 'new-playlist-btn.n_clicks':
         if playlist_clicks == 1:
-            return '', 'choosing-seeds', 'display-none', []
+            return '', 'choosing-seeds', playlist_view_class, new_playlist_btn_class, [], ''
         else:
-            return playlist_maker_class, seed_header_class, playlist_view_class, playlist_children
+            return playlist_form_class, seed_header_class, playlist_view_class, new_playlist_btn_class, playlist_children, "{} songs".format(len(playlist_children))
     elif trigger['prop_id'] == 'initialize-btn.n_clicks':
         if initialize_clicks == 1:
             # initialize playlist
-            playlist = initialize_playlist(elements, playlist_size, exclude_tracks)
-            return '', '', '', playlist
+            playlist_children = initialize_playlist(elements, playlist_size, expansion_depth, exclude_tracks)
+            return 'display-none', '', '', 'display-none', playlist_children, "{} songs".format(len(playlist_children))
 
-    return playlist_maker_class, seed_header_class, playlist_view_class, playlist_children
+    return playlist_form_class, seed_header_class, playlist_view_class, new_playlist_btn_class, playlist_children, "{} songs".format(len(playlist_children))
+
+
+
+@app.callback(
+    Output('confirm-save', 'children'),
+    [
+        Input('save-playlist-btn', 'n_clicks'),
+        Input('playlist-name', 'value')
+    ],
+    [State('playlist', 'children')])
+def save_playlist(save_playlist_btn_clicks, playlist_name, playlist_tracks):
+    if save_playlist_btn_clicks == 1:
+        track_ids = [track['props']['children'][2]['props']['children'] for track in playlist_tracks]
+        playlist = sp.user_playlist_create(username, playlist_name, public=False)
+        sp.user_playlist_add_tracks(username, playlist['id'], track_ids)
+        return 'Playlist saved!'
+    else:
+        return ''
+
 
         
-
-    
-    
-
-# @app.callback(
-#     [
-#         Output('playlist', 'children'),
-#         Output('save-playlist-btn', 'style'),
-#     ],
-#     [
-#         Input('initialize-btn', 'n_clicks'),
-#     ])
-# def init_playlist(n_clicks):
-#     assert(choosing_seeds)
-#     if n_clicks == 1:
-#         choosing_seeds = False
-
-
-# @app.callback(
-#     Output('artist-graph', 'elements'),
-#     [Input('artist-graph', 'tapNodeData')],
-#     [State('artist-graph', 'elements')])
-# def node_select(data, elements):
-#     return elements
-
-
-# @app.callback(
-#     Output('artist-graph', 'elements'),
-#     [Input('artist-graph', 'mouseoverNodeData')],
-#     [State('artist-graph', 'elements')])
-# def on_hover_node(data, elements):
-#     if data:
-#         for edge in elements:
-#             if 'source' in edge['data']:
-#                 if edge['data']['source'] == data['id'] or edge['data']['target'] == data['id']:
-#                     edge['classes'] = 'selected-edge'
-#                 elif 'classes' in edge and edge['classes'] == 'selected-edge':
-#                     edge['classes'] = ''
-#         for node in elements:
-#             if node['data']['id'] == data['id']:
-#                 node['classes'] = 'selected-node'
-#             elif 'classes' in node and node['classes'] == 'selected-node':
-#                 if node['data']['id'] in top_names:
-#                     node['classes'] = 'top'
-#                 else:
-#                     node['classes'] = 'new'
-
-#     return elements
-
-
-
 
 
 if __name__ == '__main__':
