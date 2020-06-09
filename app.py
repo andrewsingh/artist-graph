@@ -1,21 +1,16 @@
-import spotipy
-import spotipy.util as util
 import math
-import numpy as np
-import pandas as pd
-import networkx as nx
-import dash
-import dash_cytoscape as cyto
-import dash_html_components as html
-import dash_core_components as dcc
-from dash.dependencies import Input, Output, State
 from collections import defaultdict
 
-
-
-app = dash.Dash(
-    __name__, meta_tags=[{'name': 'viewport', 'content': 'width=device-width'}]
-)
+import dash
+import dash_core_components as dcc
+import dash_cytoscape as cyto
+import dash_html_components as html
+import networkx as nx
+import numpy as np
+import pandas as pd
+import spotipy
+import spotipy.util as util
+from dash.dependencies import Input, Output, State
 
 
 ANDREW = '1258447710'
@@ -26,81 +21,23 @@ SPOTIPY_CLIENT_SECRET=''
 MIN_RANK = 50
 
 username = ANDREW
-scope = 'user-top-read'
-token = util.prompt_for_user_token(username,
-                        scope,
-                        client_id=SPOTIPY_CLIENT_ID,
-                        client_secret=SPOTIPY_CLIENT_SECRET,
-                        redirect_uri='http://localhost:8080')
+scope = 'user-top-read playlist-modify-private'
 
-if token:
-    sp = spotipy.Spotify(auth=token)
-else:
-    raise RuntimeError('Cannot get token')
 
+app = dash.Dash(
+    __name__, meta_tags=[{'name': 'viewport', 'content': 'width=device-width'}]
+)
+
+
+def get_spotipy(token):
+    return spotipy.Spotify(auth=token)
 
       
-def add_to_table(table, results):
-    for i, item in enumerate(results['items']):
-        track = item['track']
-        row = [track['name'], track['id'], [artist['name'] for artist in track['artists']], [artist['id'] for artist in track['artists']], track['album']['name'], track['album']['id']]
-        table.append(row)
-    return table
-      
-  
-def get_table(playlist):
-    results = sp.playlist(playlist['id'], fields='tracks,next')
-    tracks = results['tracks']
-    table = add_to_table([], tracks)
-    while tracks['next']:
-        tracks = sp.next(tracks)
-        table = add_to_table(table, tracks)
-    return table
-
-
-def get_feature_df(track_table, feature_data):
-    features = ['acousticness', 'danceability', 'energy', 'loudness', 'speechiness', 'valence', 'tempo', 'mode', 'key', 'time_signature']
-    names = ['track_name', 'artist_names']
-    feature_table = []
-    for i in range(len(track_table)):
-        track = track_table[i]
-        track_features = feature_data[i]
-        row_names = [track[0], ', '.join(track[2])]
-        row_features = [track_features[feature] for feature in features]
-        feature_table.append(row_names + row_features)
-    
-    feature_df = pd.DataFrame(feature_table, columns=(names + features))
-    return feature_df
-
-
 def flatten(deep_list):
     return [x for sub in deep_list for x in sub]
 
 
-def get_data(playlist):
-    table = get_table(playlist)
-    table_df = pd.DataFrame(table, columns=['track_name', 'track_id', 'artist_names', 'artist_ids', 'album_name', 'album_id'])
-    id_groups = np.array_split(table_df['track_id'].values, math.ceil(len(table_df) / 100))
-    features = flatten([sp.audio_features(id_group) for id_group in id_groups])
-    feature_df = get_feature_df(table, features)
-    return table_df, feature_df
-
-
-def print_col(playlist_data, col):
-    for entry in playlist_data[col]:
-        print(entry)
-
-
-def get_related_artists(artist_id):
-    related_artists = sp.artist_related_artists(artist_id)
-    related_table = []
-    for artist in related_artists['artists']:
-        related_table.append([artist['name'], artist['popularity'], artist['id']])
-    related_df = pd.DataFrame(related_table, columns=['artist', 'pop', 'id'])
-    return related_df
-
-
-def get_top_artists(time_range):
+def get_top_artists(time_range, sp):
     top_artists = sp.current_user_top_artists(limit=50, time_range=time_range)
     remove_artists = ['Lata Mangeshkar', 'Alka Yagnik', 'Amitabh Bachchan', 'Josh A', 'Prince', 'KILLY']
     top_table = []
@@ -120,21 +57,22 @@ size_multiplier = 1
 default_time_range = 'medium_term'
 # top_names = [] # fix this by not having to use in the node hover update (modify CSS styling)
 # choosing_seeds = False
-seeds = []
+# seeds = []
 # adjacency_list = {}
-artist_ids = {}
+artist_ids = {} # TODO: make non-global (can be different for each user)
 
 def get_weight(rank):
     return -rank + MIN_RANK + weight_baseline
+
 def get_size(rank):
     return ((-rank + MIN_RANK) * size_multiplier) + size_baseline
 
 
-def get_graph_elements(time_range, threshold):
+def get_graph_elements(time_range, threshold, sp):
     nodes = []
     edges = []
 
-    top_df = get_top_artists(time_range)
+    top_df = get_top_artists(time_range, sp)
     top_names = [name for name in top_df['artist'].values]
     new_artist_edges = defaultdict(lambda: [])
     
@@ -342,6 +280,10 @@ app.layout = html.Div(
     className='row',
     children=[
         html.Div(
+            id='token',
+            className='display-none'
+        ),
+        html.Div(
             className='left-panel',
             children=[
                 html.Div(
@@ -471,13 +413,13 @@ app.layout = html.Div(
 
 
 
-def get_search_suggestions(text):
+def get_search_suggestions(text, sp):
     query = "\"" + text.replace(" ", "+") + "\""
     results = sp.search(query, type='artist')
     return [{'label': artist['name'], 'value': artist['id']} for artist in results['artists']['items']]
 
 
-def get_top_tracks(artist_id):
+def get_top_tracks(artist_id, sp):
     results = sp.artist_top_tracks(artist_id)
     return [html.Li(
         children=[
@@ -503,7 +445,7 @@ def is_node(elem):
     
 
 
-def initialize_playlist(elements, playlist_size, expansion_depth, exclude_tracks):
+def initialize_playlist(elements, playlist_size, expansion_depth, exclude_tracks, sp):
     adjacency_list = {}    
     for elem in elements:
         if is_node(elem):
@@ -518,7 +460,7 @@ def initialize_playlist(elements, playlist_size, expansion_depth, exclude_tracks
     songs_per_artist = math.ceil(playlist_size / len(seeds))
     playlist = []
     for seed in seeds:
-        playlist += get_top_tracks(artist_ids[seed])[:songs_per_artist]
+        playlist += get_top_tracks(artist_ids[seed], sp)[:songs_per_artist]
 
     return playlist
 
@@ -543,10 +485,14 @@ def initialize_playlist(elements, playlist_size, expansion_depth, exclude_tracks
         Input('artist-search-dropdown', 'search_value'),
         Input('artist-search-dropdown', 'value')
     ],
-    [State('artist-search-dropdown', 'options')])
-def update_search_suggestions(search_value, value, options):
+    [
+        State('artist-search-dropdown', 'options'),
+        State('token', 'children')
+     ])
+def update_search_suggestions(search_value, value, options, token):
+    sp = get_spotipy(token)
     if search_value:
-        return get_search_suggestions(search_value)
+        return get_search_suggestions(search_value, sp)
     elif value:
         return [option for option in options if option['value'] == value]
     else:
@@ -556,12 +502,12 @@ def update_search_suggestions(search_value, value, options):
 
 @app.callback(
     Output('artist-tracks-list', 'children'),
-    [
-        Input('artist-search-dropdown', 'value')
-    ])
-def update_artist_tracks(artist_id):
+    [Input('artist-search-dropdown', 'value')],
+    [State('token', 'children')])
+def update_artist_tracks(artist_id, token):
+    sp = get_spotipy(token)
     if artist_id:
-        return get_top_tracks(artist_id)
+        return get_top_tracks(artist_id, sp)
 
 
 
@@ -569,7 +515,8 @@ def update_artist_tracks(artist_id):
     [
         Output('artist-graph', 'elements'),
         Output('seed-list', 'children'),
-        Output('artist-search-dropdown', 'value')
+        Output('artist-search-dropdown', 'value'),
+        Output('token', 'children')
     ],
     [
         Input('time-range-dropdown', 'value'),
@@ -586,8 +533,15 @@ def update_artist_graph(time_range, threshold, node_data, elements, seed_list, a
     ctx = dash.callback_context
     print("context: {}".format(ctx.triggered))
     trigger = ctx.triggered[0]
+    token = util.prompt_for_user_token(username,
+                        scope,
+                        client_id=SPOTIPY_CLIENT_ID,
+                        client_secret=SPOTIPY_CLIENT_SECRET,
+                        redirect_uri='http://localhost:8080')
+    sp = get_spotipy(token)
+
     if trigger['value'] == None or trigger['prop_id'] in ['new-artist-threshold-slider.value', 'time-range-dropdown.value']:
-        return get_graph_elements(time_range, threshold), seed_list, artist_search_value
+        return get_graph_elements(time_range, threshold, sp), seed_list, artist_search_value, token
     elif trigger['prop_id'] == 'artist-graph.tapNodeData':
         seed = [node for node in elements if node['data']['id'] == node_data['id']][0]
         # print("Seed: {}".format(seed))
@@ -606,7 +560,7 @@ def update_artist_graph(time_range, threshold, node_data, elements, seed_list, a
                 # print("id: {}".format(new_elem.id))
                 # print(seed_list)
                 seed['data']['activation'] = 1
-            return elements, seed_list, artist_search_value
+            return elements, seed_list, artist_search_value, token
         else:
             if seed['data']['selected'] == False:
                 # seed['classes'] += ' selected-node'
@@ -622,7 +576,7 @@ def update_artist_graph(time_range, threshold, node_data, elements, seed_list, a
                         elem['data']['selected'] = False
                         elem['classes'] = old_class(elem)
                         # print("UNSELECT {}".format(elem))
-                return elements, seed_list, artist_ids[seed['data']['id']]
+                return elements, seed_list, artist_ids[seed['data']['id']], token
             else:
                 seed['data']['selected'] = False
                 seed['classes'] = old_class(seed)
@@ -630,13 +584,13 @@ def update_artist_graph(time_range, threshold, node_data, elements, seed_list, a
                 for elem in elements:
                     if not is_node(elem) and elem['classes'] == 'selected-edge':
                         elem['classes'] = old_class(elem)
-                return elements, seed_list, ''
+                return elements, seed_list, '', token
         # print("Selected:")
         # for node in elements:
         #     if 'selected' in node['data'] and node['data']['selected']:
         #         print(node)
     else:
-        return elements, seed_list, artist_search_value
+        return elements, seed_list, artist_search_value, token
 
 
 
@@ -664,12 +618,15 @@ def update_artist_graph(time_range, threshold, node_data, elements, seed_list, a
         State('new-playlist-btn', 'className'),
         State('playlist', 'children'),
         State('artist-graph', 'elements'),
-        
+        State('token', 'children')
     ])
-def toggle_playlist(playlist_clicks, initialize_clicks, playlist_size, exclude_tracks, expansion_depth, playlist_form_class, seed_header_class, playlist_view_class, new_playlist_btn_class, playlist_children, elements):
+def toggle_playlist(playlist_clicks, initialize_clicks, playlist_size, exclude_tracks, expansion_depth, playlist_form_class, 
+    seed_header_class, playlist_view_class, new_playlist_btn_class, playlist_children, elements, token):
+
     ctx = dash.callback_context
     trigger = ctx.triggered[0]
     print("trigger: {}".format(ctx.triggered))
+    sp = get_spotipy(token)
     # print("new playlist clicks: {}".format(playlist_clicks))
     if trigger['prop_id'] == '.':
         return 'display-none', '', 'display-none', 'button-primary', [], ''
@@ -681,7 +638,7 @@ def toggle_playlist(playlist_clicks, initialize_clicks, playlist_size, exclude_t
     elif trigger['prop_id'] == 'initialize-btn.n_clicks':
         if initialize_clicks == 1:
             # initialize playlist
-            playlist_children = initialize_playlist(elements, playlist_size, expansion_depth, exclude_tracks)
+            playlist_children = initialize_playlist(elements, playlist_size, expansion_depth, exclude_tracks, sp)
             return 'display-none', '', '', 'display-none', playlist_children, "{} songs".format(len(playlist_children))
 
     return playlist_form_class, seed_header_class, playlist_view_class, new_playlist_btn_class, playlist_children, "{} songs".format(len(playlist_children))
@@ -694,9 +651,13 @@ def toggle_playlist(playlist_clicks, initialize_clicks, playlist_size, exclude_t
         Input('save-playlist-btn', 'n_clicks'),
         Input('playlist-name', 'value')
     ],
-    [State('playlist', 'children')])
-def save_playlist(save_playlist_btn_clicks, playlist_name, playlist_tracks):
+    [
+        State('playlist', 'children'),
+        State('token', 'children')
+    ])
+def save_playlist(save_playlist_btn_clicks, playlist_name, playlist_tracks, token):
     if save_playlist_btn_clicks == 1:
+        sp = get_spotipy(token)
         track_ids = [track['props']['children'][2]['props']['children'] for track in playlist_tracks]
         playlist = sp.user_playlist_create(username, playlist_name, public=False)
         sp.user_playlist_add_tracks(username, playlist['id'], track_ids)
