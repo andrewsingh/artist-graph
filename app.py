@@ -19,8 +19,8 @@ ARNAV  = '67th4pl1pr8noy9kg5p19llnf'
 SPOTIPY_CLIENT_ID=''
 SPOTIPY_CLIENT_SECRET=''
 
-username = ANDREW
-scope = 'user-top-read playlist-modify-private'
+DEFAULT_USERNAME = ANDREW
+SCOPE = 'user-top-read playlist-modify-private'
 
 
 app = dash.Dash(
@@ -30,10 +30,6 @@ app = dash.Dash(
 
 def get_spotipy(token):
     return spotipy.Spotify(auth=token)
-
-      
-def flatten(deep_list):
-    return [x for sub in deep_list for x in sub]
 
 
 def get_top_artists(time_range, sp):
@@ -495,8 +491,8 @@ def update_artist_graph(time_range, threshold, node_data, elements, seed_list, a
     ctx = dash.callback_context
     print("context: {}".format(ctx.triggered))
     trigger = ctx.triggered[0]
-    token = util.prompt_for_user_token(username,
-                        scope,
+    token = util.prompt_for_user_token(DEFAULT_USERNAME,
+                        SCOPE,
                         client_id=SPOTIPY_CLIENT_ID,
                         client_secret=SPOTIPY_CLIENT_SECRET,
                         redirect_uri='http://localhost:8080')
@@ -609,6 +605,7 @@ def save_playlist(save_playlist_btn_clicks, playlist_name, playlist_tracks, toke
         track_ids = [track['props']['children'][2]['props']['children'] for track in playlist_tracks]
         if len(playlist_name) == 0:
             playlist_name = "Artist Graph"
+        username = sp.current_user()['id']
         playlist = sp.user_playlist_create(username, playlist_name, public=False)
         if len(track_ids) <= 100:
             sp.user_playlist_add_tracks(username, playlist['id'], track_ids)
@@ -622,7 +619,6 @@ def save_playlist(save_playlist_btn_clicks, playlist_name, playlist_tracks, toke
 
 
         
-
 
 if __name__ == '__main__':
     app.run_server(debug=True)
