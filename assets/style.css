@@ -60,7 +60,7 @@ are based on 10px sizing. So basically 1.5rem = 15px :) */
 html {
   font-size: 62.5%; }
 body {
-  font-size: 14px; /* currently ems cause chrome bug misinterpreting rems on body element */
+  font-size: 1.5em; /* currently ems cause chrome bug misinterpreting rems on body element */
   line-height: 1.6;
   font-weight: 400;
   font-family: "Open Sans", "HelveticaNeue", "Helvetica Neue", Helvetica, Arial, sans-serif;
@@ -460,6 +460,10 @@ div.Select-value, .Select-control,div.period, .Select-input{
   border-top: 1px solid rgba(180, 180, 180, 0.4);
 }
 
+.track-list li:hover {
+  background-color: #444;
+}
+
 
 .track-name {
   font-size: 14px;
@@ -475,18 +479,6 @@ div.Select-value, .Select-control,div.period, .Select-input{
 }
 
 
-#artist-tracks-list li:hover {
-  background-color: #444;
-}
-
-
-
-#exclude-dropdown {
-  width: 50px;
-  display: inline-block;
-}
-
-
 #new-playlist-btn {
   margin-top: 20px;
   margin-bottom: 20px;
@@ -496,9 +488,6 @@ div.Select-value, .Select-control,div.period, .Select-input{
   margin-bottom: 10px;
 }
 
-#expansion-slider {
-  margin-bottom: 10px;
-}
 
 #playlist-name {
   margin-top: 20px;
