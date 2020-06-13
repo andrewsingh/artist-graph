@@ -21,7 +21,7 @@ SPOTIPY_CLIENT_ID=''
 SPOTIPY_CLIENT_SECRET=''
 
 DEFAULT_USERNAME = ''
-SCOPE = 'user-top-read playlist-modify-private'
+SCOPE = 'user-top-read playlist-modify-public'
 
 pp = pprint.PrettyPrinter(indent=4)
 
