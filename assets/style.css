@@ -284,15 +284,6 @@ audio {
   margin-top: 5px;
 }
 
-audio::-webkit-media-controls-play-button {
-  /* width: 50px;
-  height: 50px; */
-  /* color: white;
-  background-color: #0FA0CE; */
-  /* background-color: blue;
-  color: red; */
-}
-
 
 audio::-webkit-media-controls-timeline-container {
   margin: 0px;
@@ -441,7 +432,7 @@ div.Select-value, .Select-control,div.period, .Select-input{
 }
 
 #artist-tracks-list {
-  height: 60vh;
+  height: 52vh;
 }
 
 #playlist {
@@ -480,7 +471,7 @@ div.Select-value, .Select-control,div.period, .Select-input{
 
 
 #new-playlist-btn {
-  margin-top: 20px;
+  margin-top: 25px;
   margin-bottom: 20px;
 }
 
@@ -493,6 +484,17 @@ div.Select-value, .Select-control,div.period, .Select-input{
   margin-top: 20px;
   background-color: inherit;
   color: white;
+  width: 100%;
+  font-size: 16px;
+}
+
+#playlist-name::placeholder {
+  color: #b4b4b4;
+}
+
+#playlist-size {
+  margin-top: 15px;
+  color: #33C3F0;
 }
 
 #save-playlist-btn {
@@ -526,30 +528,27 @@ div.Select-value, .Select-control,div.period, .Select-input{
 }
 
 
-#playlist-name {
-  width: 100%;
-}
-
 #save-playlist-btn {
   margin-top: 10px;
 }
 
-#playlist-name {
-  font-size: 16px;
+
+.green {
+  color: rgb(0, 180, 0);
 }
 
-/* #loading-graph, #loading-graph-output {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  margin-top: -50px;
-  margin-left: -50px;
-  width: 100px;
-  height: 100px;
+#intro-list {
+  list-style-type: circle;
+  margin-left: -20px;
+  margin-top: -5px;
+  font-size: 14px;
+  color: #b4b4b4;
+}
+
+/* #subtitle {
+  color: #b4b4b4;
 } */
 
-/* #loading-playlist-div {
-  position: absolute;
-  margin-top: 50vh;
-  margin-left: 50vh;
-} */
+#title-header, #seed-list {
+  color: #33C3F0;
+}

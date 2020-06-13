@@ -36,17 +36,15 @@ def get_spotipy(token):
 
 def get_top_artists(time_range, sp):
     top_artists = sp.current_user_top_artists(limit=50, time_range=time_range)
-    remove_artists = ['Lata Mangeshkar', 'Alka Yagnik', 'Amitabh Bachchan', 'Josh A', 'Prince', 'KILLY']
     top_table = []
     for artist in top_artists['items']:
         top_table.append([artist['name'], artist['popularity'], artist['id']])
     top_df = pd.DataFrame(top_table, columns=['artist', 'pop', 'id'])
-    top_df = top_df.loc[~top_df['artist'].isin(remove_artists)].reset_index(drop=True)
     return top_df
 
 
 # Parameters
-default_weight_threshold = 200
+# default_weight_threshold = 200
 weight_baseline = 10
 size_baseline = 30
 size_multiplier = 1
@@ -61,7 +59,7 @@ def get_size(rank):
     return ((-rank + min_rank) * size_multiplier) + size_baseline
 
 
-def get_graph_elements(time_range, threshold, sp):
+def get_graph_elements(time_range, new_artist_val, sp):
     nodes = []
     edges = []
 
@@ -100,7 +98,17 @@ def get_graph_elements(time_range, threshold, sp):
             (u, v) = (edge['data']['source'], edge['data']['target'])
             weights[v] += get_weight(ranks[u])
 
-        if weights[new_id] >= threshold:
+    weight_list = list(weights.values())
+    weight_pctile = 100 - new_artist_val
+    weight_threshold = np.percentile(weight_list, weight_pctile)
+    if weight_pctile == 100:
+        weight_threshold += 1e-6
+
+    new_artist_count = 0
+
+    for (new_id, new_edges) in new_artist_edges.items():
+        if weights[new_id] >= weight_threshold:
+            new_artist_count += 1
             nodes.append({'data': {'id': new_id, 'label': artist_names[new_id],
                 'size': get_size(min_rank), 'weight': weights[new_id], 'activation': 0, 'selected': False, 'top': False}, 'classes': 'new'})
             edges += new_edges
@@ -109,67 +117,31 @@ def get_graph_elements(time_range, threshold, sp):
         nodes.append({'data': {'id': id, 'label': artist_names[id], 'size': get_size(rank),
             'weight': weights[id], 'activation': 0, 'selected': False, 'top': True}, 'classes': 'top'})
 
+    print('new_artist_count: {}'.format(new_artist_count))
     return nodes + edges
 
 
 
 
-cose_medium = {
+
+
+prototype1 = {
     'name': 'cose',
     'animate': False,
     'randomize': True, 
-    'edgeElasticity': 400, 
-    'nodeRepulsion': 400000,
-    'nodeOverlap': 400000,
-    'gravity': 40,
-    # 'idealEdgeLength': 100,
-    'componentSpacing': 150,
-    'nodeDimensionsIncludeLabels': False
-}
-
-
-cose_medium2 = {
-    'name': 'cose',
-    'animate': False,
-    'randomize': True, 
-    'edgeElasticity': 400, 
-    'nodeRepulsion': 4000000,
-    'nodeOverlap': 4000000,
-    'gravity': 40,
-    'componentSpacing': 250,
-    'nodeDimensionsIncludeLabels': False
-}
-
-cose_medium3 = {
-    'name': 'cose',
-    'animate': False,
-    'randomize': True, 
-    'edgeElasticity': 100, 
-    'nodeRepulsion': 1000000,
-    'nodeOverlap': 1000000,
-    'gravity': 40,
-    'componentSpacing': 200,
+    'edgeElasticity': 10, 
+    'nodeRepulsion': 2000,
+    'nodeOverlap': 500,
+    'gravity': 1,
+    'componentSpacing': 100,
     'nodeDimensionsIncludeLabels': True
 }
 
 
-cose_long = {
-    'name': 'cose',
-    'animate': False,
-    'randomize': True, 
-    'edgeElasticity': 400, 
-    'nodeRepulsion': 4000000,
-    'nodeOverlap': 4000000,
-    'gravity': 40,
-    # 'idealEdgeLength': 100,
-    'componentSpacing': 20,
-    'nodeDimensionsIncludeLabels': False
-}
-
 
 graph = cyto.Cytoscape(
     id='artist-graph',
-    layout=cose_medium3,
+    layout=prototype1,
     style={'width': '100%', 'height': '100vh'},
     elements=[],
     stylesheet=[
@@ -182,7 +154,7 @@ graph = cyto.Cytoscape(
                 'label': 'data(label)',
                 # 'background-color': '#555',
                 # 'text-outline-color': '#555',
-                'text-outline-width': '2px',
+                # 'text-outline-width': '2px',
                 # 'font-size': '24px',
                 'color': '#fff',
                 'text-valign': 'center',
@@ -216,21 +188,21 @@ graph = cyto.Cytoscape(
             'selector': '.selected-node',
             'style': {
                 'background-color': '#f00000',
-                'text-outline-color': '#f00000'
+                # 'text-outline-color': '#f00000'
             }
         },
         {
             'selector': '.top',
             'style': {
                 'background-color': '#555',
-                'text-outline-color': '#555'
+                # 'text-outline-color': '#555'
             }
         },
         {
             'selector': '.new',
             'style': {
                 'background-color': 'green',
-                'text-outline-color': 'green'
+                # 'text-outline-color': 'green'
             }
         },
         {
@@ -257,34 +229,6 @@ app.layout = html.Div(
             id='token',
             className='display-none'
         ),
-        # dcc.Loading(
-        #     id="loading-graph",
-        #     type="default",
-        #     children=html.Div(id="loading-graph-output"),
-        #     style={
-        #         'position': 'absolute',
-        #         'margin-top': '50vh'
-        #     },
-        #     loading_state={
-        #         'is_loading': True
-        #     }
-        # ),
-        # dcc.Loading(
-        #     id="loading-playlist",
-        #     type="default",
-        #     children=html.Div(id="loading-playlist-output"),
-        #     style={
-        #         'position': 'absolute',
-        #         'margin-top': '70vh',
-        #         'margin-right': '10vh'
-        #     }
-        # ),
-        # html.Div(
-        #     id='loading-playlist-div',
-        #     children=[
-        #         html.H5(id='loading-playlist-text', children='Generating playlist...')
-        #     ]
-        # ),
         html.Div(
             className='left-panel',
             children=[
@@ -292,6 +236,22 @@ app.layout = html.Div(
                     id='div-header',
                     children=[
                         html.H3(id='title-header', children='Artist Graph')
+                    ]
+                ),
+                html.Div(
+                    id='div-intro',
+                    children=[
+                        # html.P(id='subtitle', children='Your top artists'),
+                        html.Ul(id='intro-list', 
+                            children=[
+                                html.Li('Each node is a artist, each edge joins two similar artists'),
+                                html.Li('The larger a node, the more you listen to that artist'),
+                                html.Li(children=[
+                                    'Artists outside your top 50 are ',
+                                    html.Span(className='green', children='green')
+                                ])
+                            ]
+                        )
                     ]
                 ),
                 html.Div(
@@ -309,13 +269,13 @@ app.layout = html.Div(
                             searchable=False,
                             clearable=False
                         ),
-                        html.Label(id='new-artist-threshold-label', htmlFor='new-artist-threshold-slider', children='New Artist Threshold'),
+                        html.Label(id='new-artist-threshold-label', htmlFor='new-artist-threshold-slider', children='Percent of New Artists in Graph'),
                         dcc.Slider(
                             id='new-artist-threshold-slider',
                             min=0,
-                            max=1000,
-                            step=50,
-                            value=300,
+                            max=100,
+                            step=1,
+                            value=5,
                             tooltip={'always_visible': False, 'placement': 'right'}
                         ),
                         html.Label(id='artist-search-label', htmlFor='artist-search-dropdown', children='Artist Search'),
@@ -374,7 +334,9 @@ app.layout = html.Div(
                                     value=[1]
                                 ),
                                 html.H6('Seeds', id='seed-header', className=''),
-                                html.Div(id='seed-list', children=[]),
+                                html.Div(id='seed-list', children=[
+                                    'Select nodes in the graph to seed the playlist. When you have selected your seeds, click the initialize button below.'
+                                ]),
                                 html.Button('Initialize', id='initialize-btn', className='button-primary'),
                                 html.Br()
                             ]
@@ -411,7 +373,7 @@ def get_search_suggestions(text, sp):
 
 
 def get_html_tracks(tracks):
-    print("Generating HTML tracks")
+    print('Generating HTML tracks')
     return [html.Li(
         children=[
             html.P(className='track-name', children=track['name']),
@@ -465,7 +427,7 @@ def get_track_tuple(track):
 
 
 def initialize_playlist(elements, playlist_size, exclude_current_tracks, exclude_remixes, expand_seeds, sp):
-    print("Initializing playlist")
+    print('Initializing playlist')
     adjacency_list = {}    
     for elem in elements:
         if is_node(elem):
@@ -475,7 +437,7 @@ def initialize_playlist(elements, playlist_size, exclude_current_tracks, exclude
             (source, target) = (elem['data']['source'], elem['data']['target'])
             adjacency_list[source][1].append(target)
             adjacency_list[target][1].append(source)
-    print("Built adjacency list")
+    print('Built adjacency list')
     # pp.pprint(adjacency_list)
     seeds = [key for (key, value) in adjacency_list.items() if value[0]['data']['activation'] == 1]
     if len(seeds) == 0:
@@ -497,9 +459,9 @@ def initialize_playlist(elements, playlist_size, exclude_current_tracks, exclude
     songs_per_seed = math.ceil(playlist_size / (len(seeds) + (len(neighbors) / 2)))
     songs_per_neighbor = math.ceil(songs_per_seed / 2)
     playlist = []
-    print("Got seeds and neighbors")
+    print('Got seeds and neighbors')
     for seed in seeds:
-        print("Getting tracks for seed {}".format(seed))
+        print('Getting tracks for seed {}'.format(seed))
         seed_tracks = []
         if songs_per_seed <= 10:
             seed_tracks = filter_tracks(get_top_tracks(seed, sp), current_tracks, exclude_remixes)
@@ -507,46 +469,15 @@ def initialize_playlist(elements, playlist_size, exclude_current_tracks, exclude
             seed_tracks = filter_tracks(get_all_tracks(seed, sp), current_tracks, exclude_remixes)
         playlist += seed_tracks[:songs_per_seed]
     for neighbor in neighbors:
-        print("Getting tracks for neighbor {}".format(neighbor))
+        print('Getting tracks for neighbor {}'.format(neighbor))
         neighbor_tracks = []
         if songs_per_neighbor <= 10:
             neighbor_tracks = filter_tracks(get_top_tracks(neighbor, sp), current_tracks, exclude_remixes)
         if len(neighbor_tracks) < songs_per_neighbor:
             neighbor_tracks = filter_tracks(get_all_tracks(neighbor, sp), current_tracks, exclude_remixes)
         playlist += neighbor_tracks[:songs_per_neighbor]
-    print("Generated playlist")
+    print('Generated playlist')
     return get_html_tracks(playlist)
-
-
-
-# @app.callback(
-#     Output("loading-graph-div", "className"), 
-#     [Input("time-range-dropdown", "value")])
-# def loading_graph(value):
-#     return ''
-
-# @app.callback(
-#     Output("loading-graph-output", "children"), 
-#     [Input("time-range-dropdown", "value")])
-# def input_triggers_spinner(value):
-#     time.sleep(4)
-#     return []
-
-
-# @app.callback(
-#     Output("loading-playlist-text", "children"), 
-#     [
-#         Input("initialize-btn", "n_clicks"),
-#         Input("playlist-size", "children")])
-# def loading_playlist(clicks, children):
-#     ctx = dash.callback_context
-#     trigger = ctx.triggered[0]
-#     print('playlist trigger: {}'.format(ctx.triggered))
-#     if trigger['prop_id'] == 'initialize-btn.n_clicks':
-#         return clicks
-#     else:
-#         return children
-
 
 
 
@@ -600,7 +531,7 @@ def update_artist_tracks(artist_id, token):
         State('artist-search-dropdown', 'value'),
         State('seed-header', 'className'),
     ])
-def update_artist_graph(time_range, threshold, node_data, elements, seed_list, artist_search_value, seed_header_class):
+def update_artist_graph(time_range, new_artist_val, node_data, elements, seed_list, artist_search_value, seed_header_class):
     ctx = dash.callback_context
     print('context: {}'.format(ctx.triggered))
     trigger = ctx.triggered[0]
@@ -612,13 +543,17 @@ def update_artist_graph(time_range, threshold, node_data, elements, seed_list, a
     sp = get_spotipy(token)
 
     if trigger['value'] == None or trigger['prop_id'] in ['new-artist-threshold-slider.value', 'time-range-dropdown.value']:
-        return get_graph_elements(time_range, threshold, sp), seed_list, artist_search_value, token
+        return get_graph_elements(time_range, new_artist_val, sp), seed_list, artist_search_value, token
     elif trigger['prop_id'] == 'artist-graph.tapNodeData':
         seed = [node for node in elements if node['data']['id'] == node_data['id']][0]
         choosing_seeds = (seed_header_class == 'choosing-seeds')
         print('choosing_seeds: {}'.format(choosing_seeds))
         if choosing_seeds:
-            if len([elem for elem in seed_list if elem['props']['children'] == seed['data']['label']]) > 0:
+            if len(seed_list) == 1 and isinstance(seed_list[0], str):
+                new_elem = html.P(seed['data']['label'], id=seed['data']['label'])
+                seed_list = [new_elem]
+                seed['data']['activation'] = 1
+            elif len([elem for elem in seed_list if elem['props']['children'] == seed['data']['label']]) > 0:
                 seed_list = [elem for elem in seed_list if elem['props']['children'] != seed['data']['label']]
                 seed['data']['activation'] = 0
             else:
