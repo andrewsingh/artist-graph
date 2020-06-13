@@ -17,7 +17,8 @@ from dash.dependencies import Input, Output, State
 SPOTIPY_CLIENT_ID=''
 SPOTIPY_CLIENT_SECRET=''
 
-DEFAULT_USERNAME = ''
+ANDREW = '1258447710'
+DEFAULT_USERNAME = ANDREW
 SCOPE = 'user-top-read playlist-modify-public'
 
 pp = pprint.PrettyPrinter(indent=4)
@@ -127,11 +128,11 @@ prototype1 = {
     'name': 'cose',
     'animate': False,
     'randomize': True, 
-    'edgeElasticity': 10, 
+    'edgeElasticity': 50, 
     'nodeRepulsion': 2000,
-    'nodeOverlap': 500,
+    'nodeOverlap': 2000,
     'gravity': 1,
-    'componentSpacing': 100,
+    'componentSpacing': 150,
     'nodeDimensionsIncludeLabels': True
 }
 
@@ -533,13 +534,14 @@ def update_artist_graph(time_range, new_artist_val, node_data, elements, seed_li
     ctx = dash.callback_context
     print('context: {}'.format(ctx.triggered))
     trigger = ctx.triggered[0]
+    print('prompting user for token...')
     token = util.prompt_for_user_token(DEFAULT_USERNAME,
                         SCOPE,
                         client_id=SPOTIPY_CLIENT_ID,
                         client_secret=SPOTIPY_CLIENT_SECRET,
                         redirect_uri='http://localhost:8080')
     sp = get_spotipy(token)
-
+    print('successfully authenticated')
     if trigger['value'] == None or trigger['prop_id'] in ['new-artist-threshold-slider.value', 'time-range-dropdown.value']:
         return get_graph_elements(time_range, new_artist_val, sp), seed_list, artist_search_value, token
     elif trigger['prop_id'] == 'artist-graph.tapNodeData':
