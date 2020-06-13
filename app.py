@@ -14,9 +14,6 @@ import spotipy.util as util
 from dash.dependencies import Input, Output, State
 
 
-ANDREW = '1258447710'
-ARNAV  = '67th4pl1pr8noy9kg5p19llnf'
-
 SPOTIPY_CLIENT_ID=''
 SPOTIPY_CLIENT_SECRET=''
 
@@ -28,6 +25,8 @@ pp = pprint.PrettyPrinter(indent=4)
 app = dash.Dash(
     __name__, meta_tags=[{'name': 'viewport', 'content': 'width=device-width'}]
 )
+
+server = app.server
 
 
 def get_spotipy(token):
@@ -44,7 +43,6 @@ def get_top_artists(time_range, sp):
 
 
 # Parameters
-# default_weight_threshold = 200
 weight_baseline = 10
 size_baseline = 30
 size_multiplier = 1
