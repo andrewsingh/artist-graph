@@ -16,6 +16,7 @@ from dash.dependencies import Input, Output, State
 
 SPOTIPY_CLIENT_ID=''
 SPOTIPY_CLIENT_SECRET=''
+REDIRECT_URI = 'http://spotify-artist-graph.com/callback/'
 
 ANDREW = '1258447710'
 DEFAULT_USERNAME = ANDREW
@@ -539,7 +540,7 @@ def update_artist_graph(time_range, new_artist_val, node_data, elements, seed_li
                         SCOPE,
                         client_id=SPOTIPY_CLIENT_ID,
                         client_secret=SPOTIPY_CLIENT_SECRET,
-                        redirect_uri='http://localhost:8080')
+                        redirect_uri=REDIRECT_URI)
     sp = get_spotipy(token)
     print('successfully authenticated')
     if trigger['value'] == None or trigger['prop_id'] in ['new-artist-threshold-slider.value', 'time-range-dropdown.value']:
