@@ -2,37 +2,95 @@ import math
 import time
 from collections import defaultdict
 import pprint
+import flask
+from flask import Flask, redirect, request, session, make_response
 import dash
 import dash_core_components as dcc
 import dash_cytoscape as cyto
 import dash_html_components as html
+from dash.dependencies import Input, Output, State
 import networkx as nx
 import numpy as np
 import pandas as pd
 import spotipy
 import spotipy.util as util
-from dash.dependencies import Input, Output, State
+import requests
 
 
-SPOTIPY_CLIENT_ID=''
-SPOTIPY_CLIENT_SECRET=''
-REDIRECT_URI = 'http://spotify-artist-graph.com/callback/'
 
-ANDREW = '1258447710'
-DEFAULT_USERNAME = ANDREW
-SCOPE = 'user-top-read playlist-modify-public'
+server = flask.Flask(__name__)
+
+server.secret_key = 'SSK'
+
+
+API_BASE = 'https://accounts.spotify.com'
+
+# Make sure you add this to Redirect URIs in the setting of the application dashboard
+SPOTIFY_CLIENT_ID=''
+SPOTIFY_CLIENT_SECRET=''
+REDIRECT_URI = 'http://spotify-artist-graph.herokuapp.com/callback'
+REDIRECT_URI_LOCAL = 'http://127.0.0.1:8050/callback'
+
+is_local = False
+
+if is_local:
+    redirect_uri = REDIRECT_URI_LOCAL
+else:
+    redirect_uri = REDIRECT_URI
+
+SCOPE = 'user-top-read,playlist-modify-public'
+
+# Set this to True for testing but you probably want it set to False in production.
+SHOW_DIALOG = True
+
+# authorization-code-flow Step 1. Have your application request authorization; 
+# the user logs in and authorizes access
+@server.route("/")
+def verify():
+    auth_url = f'{API_BASE}/authorize?client_id={SPOTIFY_CLIENT_ID}&response_type=code&redirect_uri={redirect_uri}&scope={SCOPE}&show_dialog={SHOW_DIALOG}'
+    print(auth_url)
+    return redirect(auth_url)
+
+
+
+# authorization-code-flow Step 2.
+# Have your application request refresh and access tokens;
+# Spotify returns access and refresh tokens
+@server.route("/callback")
+def api_callback():
+    session.clear()
+    code = request.args.get('code')
+
+    auth_token_url = f"{API_BASE}/api/token"
+    res = requests.post(auth_token_url, data={
+        "grant_type":"authorization_code",
+        "code":code,
+        "redirect_uri": redirect_uri,
+        "client_id": SPOTIFY_CLIENT_ID,
+        "client_secret": SPOTIFY_CLIENT_SECRET
+        })
+
+    res_body = res.json()
+    print(res.json())
+    session["token"] = res_body.get("access_token")
+
+    return redirect("graph")
+
+
+
+app = dash.Dash(
+    __name__, 
+    server=server,
+    routes_pathname_prefix='/graph/',
+    meta_tags=[{'name': 'viewport', 'content': 'width=device-width'}]
+)
+
 
 pp = pprint.PrettyPrinter(indent=4)
 
-app = dash.Dash(
-    __name__, meta_tags=[{'name': 'viewport', 'content': 'width=device-width'}]
-)
 
-server = app.server
-
-
-def get_spotipy(token):
-    return spotipy.Spotify(auth=token)
+def get_spotipy():
+    return spotipy.Spotify(auth=session['token'])
 
 
 def get_top_artists(time_range, sp):
@@ -132,7 +190,7 @@ prototype1 = {
     'edgeElasticity': 50, 
     'nodeRepulsion': 2000,
     'nodeOverlap': 2000,
-    'gravity': 1,
+    'gravity': 100,
     'componentSpacing': 150,
     'nodeDimensionsIncludeLabels': True
 }
@@ -492,7 +550,7 @@ def initialize_playlist(elements, playlist_size, exclude_current_tracks, exclude
         State('token', 'children')
      ])
 def update_search_suggestions(search_value, value, options, token):
-    sp = get_spotipy(token)
+    sp = get_spotipy()
     if search_value:
         return get_search_suggestions(search_value, sp)
     elif value:
@@ -507,7 +565,7 @@ def update_search_suggestions(search_value, value, options, token):
     [Input('artist-search-dropdown', 'value')],
     [State('token', 'children')])
 def update_artist_tracks(artist_id, token):
-    sp = get_spotipy(token)
+    sp = get_spotipy()
     if artist_id:
         return get_html_tracks(get_top_tracks(artist_id, sp))
 
@@ -517,8 +575,7 @@ def update_artist_tracks(artist_id, token):
     [
         Output('artist-graph', 'elements'),
         Output('seed-list', 'children'),
-        Output('artist-search-dropdown', 'value'),
-        Output('token', 'children'),
+        Output('artist-search-dropdown', 'value')
     ],
     [
         Input('time-range-dropdown', 'value'),
@@ -534,17 +591,10 @@ def update_artist_tracks(artist_id, token):
 def update_artist_graph(time_range, new_artist_val, node_data, elements, seed_list, artist_search_value, seed_header_class):
     ctx = dash.callback_context
     print('context: {}'.format(ctx.triggered))
-    trigger = ctx.triggered[0]
-    print('prompting user for token...')
-    token = util.prompt_for_user_token(DEFAULT_USERNAME,
-                        SCOPE,
-                        client_id=SPOTIPY_CLIENT_ID,
-                        client_secret=SPOTIPY_CLIENT_SECRET,
-                        redirect_uri=REDIRECT_URI)
-    sp = get_spotipy(token)
-    print('successfully authenticated')
+    trigger = ctx.triggered[0]   
+    sp = get_spotipy()
     if trigger['value'] == None or trigger['prop_id'] in ['new-artist-threshold-slider.value', 'time-range-dropdown.value']:
-        return get_graph_elements(time_range, new_artist_val, sp), seed_list, artist_search_value, token
+        return get_graph_elements(time_range, new_artist_val, sp), seed_list, artist_search_value
     elif trigger['prop_id'] == 'artist-graph.tapNodeData':
         seed = [node for node in elements if node['data']['id'] == node_data['id']][0]
         choosing_seeds = (seed_header_class == 'choosing-seeds')
@@ -561,7 +611,7 @@ def update_artist_graph(time_range, new_artist_val, node_data, elements, seed_li
                 new_elem = html.P(seed['data']['label'], id=seed['data']['label'])
                 seed_list.append(new_elem)
                 seed['data']['activation'] = 1
-            return elements, seed_list, artist_search_value, token
+            return elements, seed_list, artist_search_value
         else:
             if seed['data']['selected'] == False:
                 seed['data']['selected'] = True
@@ -575,16 +625,16 @@ def update_artist_graph(time_range, new_artist_val, node_data, elements, seed_li
                     elif elem['data']['id'] != seed['data']['id'] and elem['data']['selected'] == True:
                         elem['data']['selected'] = False
                         elem['classes'] = old_class(elem)
-                return elements, seed_list, seed['data']['id'], token
+                return elements, seed_list, seed['data']['id']
             else:
                 seed['data']['selected'] = False
                 seed['classes'] = old_class(seed)
                 for elem in elements:
                     if not is_node(elem) and elem['classes'] == 'selected-edge':
                         elem['classes'] = old_class(elem)
-                return elements, seed_list, '', token
+                return elements, seed_list, ''
     else:
-        return elements, seed_list, artist_search_value, token
+        return elements, seed_list, artist_search_value
 
 
 
@@ -620,7 +670,7 @@ def toggle_playlist(playlist_clicks, initialize_clicks, playlist_size, exclude_c
     ctx = dash.callback_context
     trigger = ctx.triggered[0]
     print('trigger: {}'.format(ctx.triggered))
-    sp = get_spotipy(token)
+    sp = get_spotipy()
     if trigger['prop_id'] == '.':
         return 'display-none', '', 'display-none', 'button-primary', [], ''
     elif trigger['prop_id'] == 'new-playlist-btn.n_clicks':
@@ -650,7 +700,7 @@ def toggle_playlist(playlist_clicks, initialize_clicks, playlist_size, exclude_c
     ])
 def save_playlist(save_playlist_btn_clicks, playlist_name, playlist_tracks, token):
     if save_playlist_btn_clicks == 1:
-        sp = get_spotipy(token)
+        sp = get_spotipy()
         track_ids = [track['props']['children'][2]['props']['children'] for track in playlist_tracks]
         if len(playlist_name) == 0:
             playlist_name = 'Artist Graph'
