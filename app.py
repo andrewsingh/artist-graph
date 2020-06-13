@@ -28,7 +28,7 @@ API_BASE = 'https://accounts.spotify.com'
 # Make sure you add this to Redirect URIs in the setting of the application dashboard
 SPOTIFY_CLIENT_ID=''
 SPOTIFY_CLIENT_SECRET=''
-REDIRECT_URI = 'http://spotify-artist-graph.herokuapp.com/callback'
+REDIRECT_URI = 'https://spotify-artist-graph.herokuapp.com/callback'
 REDIRECT_URI_LOCAL = 'http://127.0.0.1:8050/callback'
 
 is_local = False
@@ -84,6 +84,7 @@ app = dash.Dash(
     routes_pathname_prefix='/graph/',
     meta_tags=[{'name': 'viewport', 'content': 'width=device-width'}]
 )
+
 
 
 pp = pprint.PrettyPrinter(indent=4)
@@ -185,13 +186,17 @@ def get_graph_elements(time_range, new_artist_val, sp):
 prototype1 = {
     'name': 'cose',
     'animate': False,
-    'randomize': True, 
-    'edgeElasticity': 50, 
-    'nodeRepulsion': 2000,
+    'randomize': False, 
+    'edgeElasticity': 30, 
+    'nodeRepulsion': 20000,
     'nodeOverlap': 2000,
-    'gravity': 100,
-    'componentSpacing': 150,
-    'nodeDimensionsIncludeLabels': True
+    'gravity': 80,
+    'componentSpacing': 200,
+    'nodeDimensionsIncludeLabels': True,
+    'numIter': 1000,
+    'initialTemp': 200,
+    'coolingFactor': 0.95,
+    'minTemp': 1.0
 }
 
 
@@ -290,7 +295,7 @@ app.layout = html.Div(
                         # html.P(id='subtitle', children='Your top artists'),
                         html.Ul(id='intro-list', 
                             children=[
-                                html.Li('Each node is a artist, each edge joins two similar artists'),
+                                html.Li('Each node is an artist, each edge joins two similar artists'),
                                 html.Li('The larger a node, the more you listen to that artist'),
                                 html.Li(children=[
                                     'Artists outside your top 50 are ',
@@ -315,7 +320,7 @@ app.layout = html.Div(
                             searchable=False,
                             clearable=False
                         ),
-                        html.Label(id='new-artist-threshold-label', htmlFor='new-artist-threshold-slider', children='Percent of New Artists in Graph'),
+                        html.Label(id='new-artist-threshold-label', htmlFor='new-artist-threshold-slider', children='Percent of new artists in graph'),
                         dcc.Slider(
                             id='new-artist-threshold-slider',
                             min=0,
