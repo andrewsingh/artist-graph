@@ -1,6 +1,7 @@
 import math
+import time
 from collections import defaultdict
-
+import pprint
 import dash
 import dash_core_components as dcc
 import dash_cytoscape as cyto
@@ -22,6 +23,7 @@ SPOTIPY_CLIENT_SECRET=''
 DEFAULT_USERNAME = ''
 SCOPE = 'user-top-read playlist-modify-private'
 
+pp = pprint.PrettyPrinter(indent=4)
 
 app = dash.Dash(
     __name__, meta_tags=[{'name': 'viewport', 'content': 'width=device-width'}]
@@ -255,6 +257,34 @@ app.layout = html.Div(
             id='token',
             className='display-none'
         ),
+        # dcc.Loading(
+        #     id="loading-graph",
+        #     type="default",
+        #     children=html.Div(id="loading-graph-output"),
+        #     style={
+        #         'position': 'absolute',
+        #         'margin-top': '50vh'
+        #     },
+        #     loading_state={
+        #         'is_loading': True
+        #     }
+        # ),
+        # dcc.Loading(
+        #     id="loading-playlist",
+        #     type="default",
+        #     children=html.Div(id="loading-playlist-output"),
+        #     style={
+        #         'position': 'absolute',
+        #         'margin-top': '70vh',
+        #         'margin-right': '10vh'
+        #     }
+        # ),
+        # html.Div(
+        #     id='loading-playlist-div',
+        #     children=[
+        #         html.H5(id='loading-playlist-text', children='Generating playlist...')
+        #     ]
+        # ),
         html.Div(
             className='left-panel',
             children=[
@@ -279,7 +309,7 @@ app.layout = html.Div(
                             searchable=False,
                             clearable=False
                         ),
-                        html.Label(id='new-artist-threshold-label', htmlFor='new-artist-threshold-slider', children='New artist threshold'),
+                        html.Label(id='new-artist-threshold-label', htmlFor='new-artist-threshold-slider', children='New Artist Threshold'),
                         dcc.Slider(
                             id='new-artist-threshold-slider',
                             min=0,
@@ -340,7 +370,8 @@ app.layout = html.Div(
                                     id='expand-seeds',
                                     options=[
                                         {'label': 'Include seed neighbors', 'value': 1}
-                                    ]
+                                    ],
+                                    value=[1]
                                 ),
                                 html.H6('Seeds', id='seed-header', className=''),
                                 html.Div(id='seed-list', children=[]),
@@ -373,7 +404,6 @@ app.layout = html.Div(
 
 
 
-
 def get_search_suggestions(text, sp):
     query = '\'' + text.replace(' ', '+') + '\''
     results = sp.search(query, type='artist')
@@ -381,6 +411,7 @@ def get_search_suggestions(text, sp):
 
 
 def get_html_tracks(tracks):
+    print("Generating HTML tracks")
     return [html.Li(
         children=[
             html.P(className='track-name', children=track['name']),
@@ -434,6 +465,7 @@ def get_track_tuple(track):
 
 
 def initialize_playlist(elements, playlist_size, exclude_current_tracks, exclude_remixes, expand_seeds, sp):
+    print("Initializing playlist")
     adjacency_list = {}    
     for elem in elements:
         if is_node(elem):
@@ -442,7 +474,9 @@ def initialize_playlist(elements, playlist_size, exclude_current_tracks, exclude
         if not is_node(elem):
             (source, target) = (elem['data']['source'], elem['data']['target'])
             adjacency_list[source][1].append(target)
-    
+            adjacency_list[target][1].append(source)
+    print("Built adjacency list")
+    # pp.pprint(adjacency_list)
     seeds = [key for (key, value) in adjacency_list.items() if value[0]['data']['activation'] == 1]
     if len(seeds) == 0:
         return []
@@ -463,16 +497,57 @@ def initialize_playlist(elements, playlist_size, exclude_current_tracks, exclude
     songs_per_seed = math.ceil(playlist_size / (len(seeds) + (len(neighbors) / 2)))
     songs_per_neighbor = math.ceil(songs_per_seed / 2)
     playlist = []
+    print("Got seeds and neighbors")
     for seed in seeds:
-        seed_tracks = filter_tracks(get_all_tracks(seed, sp), current_tracks, exclude_remixes)
+        print("Getting tracks for seed {}".format(seed))
+        seed_tracks = []
+        if songs_per_seed <= 10:
+            seed_tracks = filter_tracks(get_top_tracks(seed, sp), current_tracks, exclude_remixes)
+        if len(seed_tracks) < songs_per_seed:
+            seed_tracks = filter_tracks(get_all_tracks(seed, sp), current_tracks, exclude_remixes)
         playlist += seed_tracks[:songs_per_seed]
     for neighbor in neighbors:
-        neighbor_tracks = filter_tracks(get_all_tracks(neighbor, sp), current_tracks, exclude_remixes)
+        print("Getting tracks for neighbor {}".format(neighbor))
+        neighbor_tracks = []
+        if songs_per_neighbor <= 10:
+            neighbor_tracks = filter_tracks(get_top_tracks(neighbor, sp), current_tracks, exclude_remixes)
+        if len(neighbor_tracks) < songs_per_neighbor:
+            neighbor_tracks = filter_tracks(get_all_tracks(neighbor, sp), current_tracks, exclude_remixes)
         playlist += neighbor_tracks[:songs_per_neighbor]
-
+    print("Generated playlist")
     return get_html_tracks(playlist)
 
-            
+
+
+# @app.callback(
+#     Output("loading-graph-div", "className"), 
+#     [Input("time-range-dropdown", "value")])
+# def loading_graph(value):
+#     return ''
+
+# @app.callback(
+#     Output("loading-graph-output", "children"), 
+#     [Input("time-range-dropdown", "value")])
+# def input_triggers_spinner(value):
+#     time.sleep(4)
+#     return []
+
+
+# @app.callback(
+#     Output("loading-playlist-text", "children"), 
+#     [
+#         Input("initialize-btn", "n_clicks"),
+#         Input("playlist-size", "children")])
+# def loading_playlist(clicks, children):
+#     ctx = dash.callback_context
+#     trigger = ctx.triggered[0]
+#     print('playlist trigger: {}'.format(ctx.triggered))
+#     if trigger['prop_id'] == 'initialize-btn.n_clicks':
+#         return clicks
+#     else:
+#         return children
+
+
 
 
 @app.callback(
@@ -512,7 +587,7 @@ def update_artist_tracks(artist_id, token):
         Output('artist-graph', 'elements'),
         Output('seed-list', 'children'),
         Output('artist-search-dropdown', 'value'),
-        Output('token', 'children')
+        Output('token', 'children'),
     ],
     [
         Input('time-range-dropdown', 'value'),
@@ -523,7 +598,7 @@ def update_artist_tracks(artist_id, token):
         State('artist-graph', 'elements'),
         State('seed-list', 'children'),
         State('artist-search-dropdown', 'value'),
-        State('seed-header', 'className')
+        State('seed-header', 'className'),
     ])
 def update_artist_graph(time_range, threshold, node_data, elements, seed_list, artist_search_value, seed_header_class):
     ctx = dash.callback_context
@@ -644,7 +719,7 @@ def save_playlist(save_playlist_btn_clicks, playlist_name, playlist_tracks, toke
         if len(playlist_name) == 0:
             playlist_name = 'Artist Graph'
         username = sp.current_user()['id']
-        playlist = sp.user_playlist_create(username, playlist_name, public=False)
+        playlist = sp.user_playlist_create(username, playlist_name)
         if len(track_ids) <= 100:
             sp.user_playlist_add_tracks(username, playlist['id'], track_ids)
         else:
