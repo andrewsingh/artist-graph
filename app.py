@@ -41,14 +41,14 @@ else:
 SCOPE = 'user-top-read,playlist-modify-public'
 
 # Set this to True for testing but you probably want it set to False in production.
-SHOW_DIALOG = True
+SHOW_DIALOG = False
 
 # authorization-code-flow Step 1. Have your application request authorization; 
 # the user logs in and authorizes access
 @server.route("/")
 def verify():
     auth_url = f'{API_BASE}/authorize?client_id={SPOTIFY_CLIENT_ID}&response_type=code&redirect_uri={redirect_uri}&scope={SCOPE}&show_dialog={SHOW_DIALOG}'
-    print(auth_url)
+    # print(auth_url)
     return redirect(auth_url)
 
 
@@ -71,7 +71,7 @@ def api_callback():
         })
 
     res_body = res.json()
-    print(res.json())
+    # print(res.json())
     session["token"] = res_body.get("access_token")
 
     return redirect("graph")
@@ -175,9 +175,8 @@ def get_graph_elements(time_range, new_artist_val, sp):
         nodes.append({'data': {'id': id, 'label': artist_names[id], 'size': get_size(rank),
             'weight': weights[id], 'activation': 0, 'selected': False, 'top': True}, 'classes': 'top'})
 
-    print('new_artist_count: {}'.format(new_artist_count))
+    # print('new_artist_count: {}'.format(new_artist_count))
     return nodes + edges
-
 
 
 
@@ -235,13 +234,6 @@ graph = cyto.Cytoscape(
                 'z-index': 99
             }
         },
-        # {
-        #     'selector': '.selected-node',
-        #     'style': {
-        #         'background-color': '#f00',
-        #         'text-outline-color': '#f00'
-        #     }
-        # },
         {
             'selector': '.selected-node',
             'style': {
@@ -283,10 +275,6 @@ exclude_dropdown_options = []
 app.layout = html.Div(
     className='row',
     children=[
-        html.Div(
-            id='token',
-            className='display-none'
-        ),
         html.Div(
             className='left-panel',
             children=[
@@ -431,7 +419,6 @@ def get_search_suggestions(text, sp):
 
 
 def get_html_tracks(tracks):
-    print('Generating HTML tracks')
     return [html.Li(
         children=[
             html.P(className='track-name', children=track['name']),
@@ -485,7 +472,7 @@ def get_track_tuple(track):
 
 
 def initialize_playlist(elements, playlist_size, exclude_current_tracks, exclude_remixes, expand_seeds, sp):
-    print('Initializing playlist')
+    # print('Initializing playlist')
     adjacency_list = {}    
     for elem in elements:
         if is_node(elem):
@@ -495,7 +482,7 @@ def initialize_playlist(elements, playlist_size, exclude_current_tracks, exclude
             (source, target) = (elem['data']['source'], elem['data']['target'])
             adjacency_list[source][1].append(target)
             adjacency_list[target][1].append(source)
-    print('Built adjacency list')
+    # print('Built adjacency list')
     # pp.pprint(adjacency_list)
     seeds = [key for (key, value) in adjacency_list.items() if value[0]['data']['activation'] == 1]
     if len(seeds) == 0:
@@ -517,9 +504,9 @@ def initialize_playlist(elements, playlist_size, exclude_current_tracks, exclude
     songs_per_seed = math.ceil(playlist_size / (len(seeds) + (len(neighbors) / 2)))
     songs_per_neighbor = math.ceil(songs_per_seed / 2)
     playlist = []
-    print('Got seeds and neighbors')
+    # print('Got seeds and neighbors')
     for seed in seeds:
-        print('Getting tracks for seed {}'.format(seed))
+        # print('Getting tracks for seed {}'.format(seed))
         seed_tracks = []
         if songs_per_seed <= 10:
             seed_tracks = filter_tracks(get_top_tracks(seed, sp), current_tracks, exclude_remixes)
@@ -527,14 +514,14 @@ def initialize_playlist(elements, playlist_size, exclude_current_tracks, exclude
             seed_tracks = filter_tracks(get_all_tracks(seed, sp), current_tracks, exclude_remixes)
         playlist += seed_tracks[:songs_per_seed]
     for neighbor in neighbors:
-        print('Getting tracks for neighbor {}'.format(neighbor))
+        # print('Getting tracks for neighbor {}'.format(neighbor))
         neighbor_tracks = []
         if songs_per_neighbor <= 10:
             neighbor_tracks = filter_tracks(get_top_tracks(neighbor, sp), current_tracks, exclude_remixes)
         if len(neighbor_tracks) < songs_per_neighbor:
             neighbor_tracks = filter_tracks(get_all_tracks(neighbor, sp), current_tracks, exclude_remixes)
         playlist += neighbor_tracks[:songs_per_neighbor]
-    print('Generated playlist')
+    # print('Generated playlist')
     return get_html_tracks(playlist)
 
 
@@ -545,11 +532,8 @@ def initialize_playlist(elements, playlist_size, exclude_current_tracks, exclude
         Input('artist-search-dropdown', 'search_value'),
         Input('artist-search-dropdown', 'value')
     ],
-    [
-        State('artist-search-dropdown', 'options'),
-        State('token', 'children')
-     ])
-def update_search_suggestions(search_value, value, options, token):
+    [State('artist-search-dropdown', 'options')])
+def update_search_suggestions(search_value, value, options):
     sp = get_spotipy()
     if search_value:
         return get_search_suggestions(search_value, sp)
@@ -562,9 +546,8 @@ def update_search_suggestions(search_value, value, options, token):
 
 @app.callback(
     Output('artist-tracks-list', 'children'),
-    [Input('artist-search-dropdown', 'value')],
-    [State('token', 'children')])
-def update_artist_tracks(artist_id, token):
+    [Input('artist-search-dropdown', 'value')])
+def update_artist_tracks(artist_id):
     sp = get_spotipy()
     if artist_id:
         return get_html_tracks(get_top_tracks(artist_id, sp))
@@ -590,7 +573,7 @@ def update_artist_tracks(artist_id, token):
     ])
 def update_artist_graph(time_range, new_artist_val, node_data, elements, seed_list, artist_search_value, seed_header_class):
     ctx = dash.callback_context
-    print('context: {}'.format(ctx.triggered))
+    # print('context: {}'.format(ctx.triggered))
     trigger = ctx.triggered[0]   
     sp = get_spotipy()
     if trigger['value'] == None or trigger['prop_id'] in ['new-artist-threshold-slider.value', 'time-range-dropdown.value']:
@@ -598,7 +581,7 @@ def update_artist_graph(time_range, new_artist_val, node_data, elements, seed_li
     elif trigger['prop_id'] == 'artist-graph.tapNodeData':
         seed = [node for node in elements if node['data']['id'] == node_data['id']][0]
         choosing_seeds = (seed_header_class == 'choosing-seeds')
-        print('choosing_seeds: {}'.format(choosing_seeds))
+        # print('choosing_seeds: {}'.format(choosing_seeds))
         if choosing_seeds:
             if len(seed_list) == 1 and isinstance(seed_list[0], str):
                 new_elem = html.P(seed['data']['label'], id=seed['data']['label'])
@@ -662,14 +645,13 @@ def update_artist_graph(time_range, new_artist_val, node_data, elements, seed_li
         State('playlist-view', 'className'),
         State('new-playlist-btn', 'className'),
         State('playlist', 'children'),
-        State('artist-graph', 'elements'),
-        State('token', 'children')
+        State('artist-graph', 'elements')
     ])
-def toggle_playlist(playlist_clicks, initialize_clicks, playlist_size, exclude_current_tracks, exclude_remixes, expand_seeds, playlist_form_class, seed_header_class, playlist_view_class, new_playlist_btn_class, playlist_children, elements, token):
+def toggle_playlist(playlist_clicks, initialize_clicks, playlist_size, exclude_current_tracks, exclude_remixes, expand_seeds, playlist_form_class, seed_header_class, playlist_view_class, new_playlist_btn_class, playlist_children, elements):
 
     ctx = dash.callback_context
     trigger = ctx.triggered[0]
-    print('trigger: {}'.format(ctx.triggered))
+    # print('trigger: {}'.format(ctx.triggered))
     sp = get_spotipy()
     if trigger['prop_id'] == '.':
         return 'display-none', '', 'display-none', 'button-primary', [], ''
@@ -694,11 +676,8 @@ def toggle_playlist(playlist_clicks, initialize_clicks, playlist_size, exclude_c
         Input('save-playlist-btn', 'n_clicks'),
         Input('playlist-name', 'value')
     ],
-    [
-        State('playlist', 'children'),
-        State('token', 'children')
-    ])
-def save_playlist(save_playlist_btn_clicks, playlist_name, playlist_tracks, token):
+    [State('playlist', 'children')])
+def save_playlist(save_playlist_btn_clicks, playlist_name, playlist_tracks):
     if save_playlist_btn_clicks == 1:
         sp = get_spotipy()
         track_ids = [track['props']['children'][2]['props']['children'] for track in playlist_tracks]
