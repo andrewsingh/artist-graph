@@ -21,7 +21,7 @@ import os
 API_BASE = 'https://accounts.spotify.com'
 SPOTIFY_CLIENT_ID = os.environ['SPOTIFY_CLIENT_ID']
 SPOTIFY_CLIENT_SECRET = os.environ['SPOTIFY_CLIENT_SECRET']
-REDIRECT_URI = 'https://spotify-artist-graph.herokuapp.com/callback'
+REDIRECT_URI = 'https://artist-graph-spotify.herokuapp.com/callback'
 REDIRECT_URI_LOCAL = 'http://127.0.0.1:8050/callback'
 SCOPE = 'user-top-read,playlist-modify-public'
 SHOW_DIALOG = True
@@ -40,7 +40,7 @@ server.secret_key = os.environ['SECRET_KEY']
 @server.route("/")
 def index():
     return render_template('login.html')
-    
+
 
 
 # authorization-code-flow Step 1. Have your application request authorization; 
