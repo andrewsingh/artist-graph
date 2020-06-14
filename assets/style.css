@@ -337,11 +337,11 @@ body {
 }
 
 .left-panel, .right-panel {
-  width: 17.5%;
+  width: 15%;
 }
 
 .center-panel {
-  width: 65%;
+  width: 70%;
 } 
 
 .left-panel, .right-panel, .center-panel {

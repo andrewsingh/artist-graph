@@ -9,39 +9,32 @@ import dash_core_components as dcc
 import dash_cytoscape as cyto
 import dash_html_components as html
 from dash.dependencies import Input, Output, State
-import networkx as nx
 import numpy as np
 import pandas as pd
 import spotipy
 import spotipy.util as util
 import requests
+import os
 
-
-
-server = flask.Flask(__name__)
-
-server.secret_key = 'SSK'
 
 
 API_BASE = 'https://accounts.spotify.com'
-
-# Make sure you add this to Redirect URIs in the setting of the application dashboard
-SPOTIFY_CLIENT_ID=''
-SPOTIFY_CLIENT_SECRET=''
+SPOTIFY_CLIENT_ID = os.environ['SPOTIFY_CLIENT_ID']
+SPOTIFY_CLIENT_SECRET = os.environ['SPOTIFY_CLIENT_SECRET']
 REDIRECT_URI = 'https://spotify-artist-graph.herokuapp.com/callback'
 REDIRECT_URI_LOCAL = 'http://127.0.0.1:8050/callback'
+SCOPE = 'user-top-read,playlist-modify-public'
+SHOW_DIALOG = True
 
-is_local = False
 
-if is_local:
+if int(os.environ['DEBUG']) == 1:
     redirect_uri = REDIRECT_URI_LOCAL
 else:
     redirect_uri = REDIRECT_URI
 
-SCOPE = 'user-top-read,playlist-modify-public'
 
-# Set this to True for testing but you probably want it set to False in production.
-SHOW_DIALOG = True
+server = flask.Flask(__name__)
+server.secret_key = os.environ['SECRET_KEY']
 
 # authorization-code-flow Step 1. Have your application request authorization; 
 # the user logs in and authorizes access
@@ -50,7 +43,6 @@ def verify():
     auth_url = f'{API_BASE}/authorize?client_id={SPOTIFY_CLIENT_ID}&response_type=code&redirect_uri={redirect_uri}&scope={SCOPE}&show_dialog={SHOW_DIALOG}'
     print("auth_url: {}".format(auth_url))
     return redirect(auth_url)
-
 
 
 # authorization-code-flow Step 2.
@@ -73,9 +65,7 @@ def api_callback():
     res_body = res.json()
     print("auth response: {}".format(res.json()))
     session["token"] = res_body.get("access_token")
-
     return redirect("graph")
-
 
 
 app = dash.Dash(
@@ -87,6 +77,7 @@ app = dash.Dash(
 
 
 #pp = pprint.PrettyPrinter(indent=4)
+
 
 
 def get_spotipy():
@@ -103,7 +94,7 @@ def get_top_artists(time_range, sp):
     return top_df
 
 
-# Parameters
+# Graph parameters
 weight_baseline = 10
 size_baseline = 30
 size_multiplier = 1
@@ -178,241 +169,6 @@ def get_graph_elements(time_range, new_artist_val, sp):
 
     # print('new_artist_count: {}'.format(new_artist_count))
     return nodes + edges
-
-
-
-
-
-prototype1 = {
-    'name': 'cose',
-    'animate': False,
-    'randomize': False, 
-    'edgeElasticity': 30, 
-    'nodeRepulsion': 20000,
-    'nodeOverlap': 2000,
-    'gravity': 80,
-    'componentSpacing': 200,
-    'nodeDimensionsIncludeLabels': True,
-    'numIter': 1000,
-    'initialTemp': 200,
-    'coolingFactor': 0.95,
-    'minTemp': 1.0
-}
-
-
-
-graph = cyto.Cytoscape(
-    id='artist-graph',
-    layout=prototype1,
-    style={'width': '100%', 'height': '100vh'},
-    elements=[],
-    stylesheet=[
-        {
-            'selector': 'node',
-            'style': {
-                # 'label': 'data(weight)',
-                'width': 'data(size)',
-                'height': 'data(size)',
-                'label': 'data(label)',
-                # 'background-color': '#555',
-                # 'text-outline-color': '#555',
-                # 'text-outline-width': '2px',
-                # 'font-size': '24px',
-                'color': '#fff',
-                'text-valign': 'center',
-                'text-halign': 'center'
-                #'background-fit': 'contain'
-            }
-        },
-        {
-            'selector': 'edge',
-            'style': {
-                'width': '2px',
-                'opacity': 0.5
-            }
-        },
-        {
-            'selector': '.selected-edge',
-            'style': {
-                'line-color': '#f00',
-                'width': '4px',
-                'z-index': 99
-            }
-        },
-        {
-            'selector': '.selected-node',
-            'style': {
-                'background-color': '#f00000',
-                # 'text-outline-color': '#f00000'
-            }
-        },
-        {
-            'selector': '.top',
-            'style': {
-                'background-color': '#555',
-                # 'text-outline-color': '#555'
-            }
-        },
-        {
-            'selector': '.new',
-            'style': {
-                'background-color': 'green',
-                # 'text-outline-color': 'green'
-            }
-        },
-        {
-            'selector': '[activation >= 1]',
-            'style': {
-                'background-color': '#33C3F0',
-                'text-outline-color': '#000'
-            }
-        }
-    ]
-)
-
-
-expansion_marks = {}
-for i in range(0, 4):
-    expansion_marks[i] = {'label': str(i)}
-
-exclude_dropdown_options = []
-
-app.layout = html.Div(
-    className='row',
-    children=[
-        html.Div(
-            className='left-panel',
-            children=[
-                html.Div(
-                    id='div-header',
-                    children=[
-                        html.H3(id='title-header', children='Artist Graph')
-                    ]
-                ),
-                html.Div(
-                    id='div-intro',
-                    children=[
-                        # html.P(id='subtitle', children='Your top artists'),
-                        html.Ul(id='intro-list', 
-                            children=[
-                                html.Li('Each node is an artist, each edge joins two similar artists'),
-                                html.Li('The larger a node, the more you listen to that artist'),
-                                html.Li(children=[
-                                    'Artists outside your top 50 are ',
-                                    html.Span(className='green', children='green')
-                                ])
-                            ]
-                        )
-                    ]
-                ),
-                html.Div(
-                    id='div-graph-options',
-                    children=[
-                        html.Label(id='time-range-label', htmlFor='time-range-dropdown', children='Time Range'),
-                        dcc.Dropdown(
-                            id='time-range-dropdown',
-                            options=[
-                                {'label': 'Short (4 weeks)', 'value': 'short_term'},
-                                {'label': 'Medium (6 months)', 'value': 'medium_term'},
-                                {'label': 'Long (all-time)', 'value': 'long_term'}
-                            ],
-                            value='medium_term',
-                            searchable=False,
-                            clearable=False
-                        ),
-                        html.Label(id='new-artist-threshold-label', htmlFor='new-artist-threshold-slider', children='Percent of new artists in graph'),
-                        dcc.Slider(
-                            id='new-artist-threshold-slider',
-                            min=0,
-                            max=100,
-                            step=1,
-                            value=5,
-                            tooltip={'always_visible': False, 'placement': 'right'}
-                        ),
-                        html.Label(id='artist-search-label', htmlFor='artist-search-dropdown', children='Artist Search'),
-                        dcc.Dropdown(
-                            id='artist-search-dropdown',
-                            options=[],
-                            placeholder='Search for an artist...'
-                        ),
-                        html.Ul(id='artist-tracks-list', className='track-list', children=[]),
-                    ]
-                )
-            ]
-        ),
-        html.Div(
-            className='center-panel',
-            children=[
-                graph
-            ]
-        ),
-        html.Div(
-            className='right-panel',
-            children=[
-                html.Button('New Playlist', id='new-playlist-btn', className='button-primary'),
-                html.Div(
-                    id='playlist-maker',
-                    children=[
-                        html.Div(
-                            id='playlist-form',
-                            children=[
-                                html.Label(id='playlist-size-label', htmlFor='playlist-size-slider', children='Playlist Size'),
-                                dcc.Slider(
-                                    id='playlist-size-slider',
-                                    min=10,
-                                    max=300,
-                                    step=10,
-                                    value=50,
-                                    tooltip={'always_visible': False, 'placement': 'right'}
-                                ),
-                                dcc.Checklist(
-                                    id='exclude-playlist-tracks',
-                                    options=[
-                                        {'label': 'Exclude tracks in my current playlists', 'value': 1}
-                                    ]
-                                ),
-                                dcc.Checklist(
-                                    id='exclude-remixes',
-                                    options=[
-                                        {'label': 'Exclude remixes', 'value': 1}
-                                    ]
-                                ),
-                                dcc.Checklist(
-                                    id='expand-seeds',
-                                    options=[
-                                        {'label': 'Include seed neighbors', 'value': 1}
-                                    ],
-                                    value=[1]
-                                ),
-                                html.H6('Seeds', id='seed-header', className=''),
-                                html.Div(id='seed-list', children=[
-                                    'Select nodes in the graph to seed the playlist. When you have selected your seeds, click the initialize button below.'
-                                ]),
-                                html.Button('Initialize', id='initialize-btn', className='button-primary'),
-                                html.Br()
-                            ]
-                        ),
-                        html.Div(
-                            id='playlist-view',
-                            className='display-none',
-                            children=[
-                                dcc.Input(
-                                    id='playlist-name',
-                                    type='text',
-                                    placeholder='Name your playlist...'
-                                ),
-                                html.Ul(id='playlist', className='track-list', children=[]),
-                                html.H6(id='playlist-size'),
-                                html.Button('Save to Spotify', id='save-playlist-btn', className='button-primary'),
-                                html.H6(id='confirm-save')
-                            ]
-                        )
-                    ]
-                )
-            ]
-        )
-    ]
-)
 
 
 
@@ -699,6 +455,247 @@ def save_playlist(save_playlist_btn_clicks, playlist_name, playlist_tracks):
         return 'Playlist saved!'
     else:
         return ''
+
+
+
+
+
+
+
+prototype1 = {
+    'name': 'cose',
+    'animate': False,
+    'randomize': False, 
+    'edgeElasticity': 30, 
+    'nodeRepulsion': 20000,
+    'nodeOverlap': 500,
+    'gravity': 40,
+    'componentSpacing': 200,
+    'nodeDimensionsIncludeLabels': True,
+    'numIter': 1000,
+    'initialTemp': 1000,
+    'coolingFactor': 0.99,
+    'minTemp': 1.0
+}
+
+
+
+graph = cyto.Cytoscape(
+    id='artist-graph',
+    layout=prototype1,
+    style={'width': '100%', 'height': '100vh'},
+    elements=[],
+    stylesheet=[
+        {
+            'selector': 'node',
+            'style': {
+                # 'label': 'data(weight)',
+                'width': 'data(size)',
+                'height': 'data(size)',
+                'label': 'data(label)',
+                # 'background-color': '#555',
+                # 'text-outline-color': '#555',
+                # 'text-outline-width': '2px',
+                # 'font-size': '24px',
+                'color': '#fff',
+                'text-valign': 'center',
+                'text-halign': 'center'
+                #'background-fit': 'contain'
+            }
+        },
+        {
+            'selector': 'edge',
+            'style': {
+                'width': '2px',
+                'opacity': 0.5
+            }
+        },
+        {
+            'selector': '.selected-edge',
+            'style': {
+                'line-color': '#f00',
+                'width': '4px',
+                'z-index': 99
+            }
+        },
+        {
+            'selector': '.selected-node',
+            'style': {
+                'background-color': '#f00000',
+                # 'text-outline-color': '#f00000'
+            }
+        },
+        {
+            'selector': '.top',
+            'style': {
+                'background-color': '#555',
+                # 'text-outline-color': '#555'
+            }
+        },
+        {
+            'selector': '.new',
+            'style': {
+                'background-color': 'green',
+                # 'text-outline-color': 'green'
+            }
+        },
+        {
+            'selector': '[activation >= 1]',
+            'style': {
+                'background-color': '#33C3F0',
+                'text-outline-color': '#000'
+            }
+        }
+    ]
+)
+
+
+expansion_marks = {}
+for i in range(0, 4):
+    expansion_marks[i] = {'label': str(i)}
+
+exclude_dropdown_options = []
+
+
+app.layout = html.Div(
+    className='row',
+    children=[
+        html.Div(
+            className='left-panel',
+            children=[
+                html.Div(
+                    id='div-header',
+                    children=[
+                        html.H3(id='title-header', children='Artist Graph')
+                    ]
+                ),
+                html.Div(
+                    id='div-intro',
+                    children=[
+                        # html.P(id='subtitle', children='Your top artists'),
+                        html.Ul(id='intro-list', 
+                            children=[
+                                html.Li('Each node is an artist, each edge joins two similar artists'),
+                                html.Li('The larger a node, the more you listen to that artist'),
+                                html.Li(children=[
+                                    'Artists outside your top 50 are ',
+                                    html.Span(className='green', children='green')
+                                ])
+                            ]
+                        )
+                    ]
+                ),
+                html.Div(
+                    id='div-graph-options',
+                    children=[
+                        html.Label(id='time-range-label', htmlFor='time-range-dropdown', children='Time Range'),
+                        dcc.Dropdown(
+                            id='time-range-dropdown',
+                            options=[
+                                {'label': 'Short (4 weeks)', 'value': 'short_term'},
+                                {'label': 'Medium (6 months)', 'value': 'medium_term'},
+                                {'label': 'Long (all-time)', 'value': 'long_term'}
+                            ],
+                            value='medium_term',
+                            searchable=False,
+                            clearable=False
+                        ),
+                        html.Label(id='new-artist-threshold-label', htmlFor='new-artist-threshold-slider', children='Percent of new artists in graph'),
+                        dcc.Slider(
+                            id='new-artist-threshold-slider',
+                            min=0,
+                            max=100,
+                            step=1,
+                            value=5,
+                            tooltip={'always_visible': False, 'placement': 'right'}
+                        ),
+                        html.Label(id='artist-search-label', htmlFor='artist-search-dropdown', children='Artist Search'),
+                        dcc.Dropdown(
+                            id='artist-search-dropdown',
+                            options=[],
+                            placeholder='Search for an artist...'
+                        ),
+                        html.Ul(id='artist-tracks-list', className='track-list', children=[]),
+                    ]
+                )
+            ]
+        ),
+        html.Div(
+            className='center-panel',
+            children=[
+                graph
+            ]
+        ),
+        html.Div(
+            className='right-panel',
+            children=[
+                html.Button('New Playlist', id='new-playlist-btn', className='button-primary'),
+                html.Div(
+                    id='playlist-maker',
+                    children=[
+                        html.Div(
+                            id='playlist-form',
+                            children=[
+                                html.Label(id='playlist-size-label', htmlFor='playlist-size-slider', children='Playlist Size'),
+                                dcc.Slider(
+                                    id='playlist-size-slider',
+                                    min=10,
+                                    max=300,
+                                    step=10,
+                                    value=50,
+                                    tooltip={'always_visible': False, 'placement': 'right'}
+                                ),
+                                dcc.Checklist(
+                                    id='exclude-playlist-tracks',
+                                    options=[
+                                        {'label': 'Exclude tracks in my current playlists', 'value': 1}
+                                    ]
+                                ),
+                                dcc.Checklist(
+                                    id='exclude-remixes',
+                                    options=[
+                                        {'label': 'Exclude remixes', 'value': 1}
+                                    ]
+                                ),
+                                dcc.Checklist(
+                                    id='expand-seeds',
+                                    options=[
+                                        {'label': 'Include seed neighbors', 'value': 1}
+                                    ],
+                                    value=[1]
+                                ),
+                                html.H6('Seeds', id='seed-header', className=''),
+                                html.Div(id='seed-list', children=[
+                                    'Select nodes in the graph to seed the playlist. When you have selected your seeds, click the initialize button below.'
+                                ]),
+                                html.Button('Initialize', id='initialize-btn', className='button-primary'),
+                                html.Br()
+                            ]
+                        ),
+                        html.Div(
+                            id='playlist-view',
+                            className='display-none',
+                            children=[
+                                dcc.Input(
+                                    id='playlist-name',
+                                    type='text',
+                                    placeholder='Name your playlist...'
+                                ),
+                                html.Ul(id='playlist', className='track-list', children=[]),
+                                html.H6(id='playlist-size'),
+                                html.Button('Save to Spotify', id='save-playlist-btn', className='button-primary'),
+                                html.H6(id='confirm-save')
+                            ]
+                        )
+                    ]
+                )
+            ]
+        )
+    ]
+)
+
+
+
 
 
         
