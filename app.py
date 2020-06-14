@@ -41,14 +41,14 @@ else:
 SCOPE = 'user-top-read,playlist-modify-public'
 
 # Set this to True for testing but you probably want it set to False in production.
-SHOW_DIALOG = False
+SHOW_DIALOG = True
 
 # authorization-code-flow Step 1. Have your application request authorization; 
 # the user logs in and authorizes access
 @server.route("/")
 def verify():
     auth_url = f'{API_BASE}/authorize?client_id={SPOTIFY_CLIENT_ID}&response_type=code&redirect_uri={redirect_uri}&scope={SCOPE}&show_dialog={SHOW_DIALOG}'
-    # print(auth_url)
+    print("auth_url: {}".format(auth_url))
     return redirect(auth_url)
 
 
@@ -71,7 +71,7 @@ def api_callback():
         })
 
     res_body = res.json()
-    # print(res.json())
+    print("auth response: {}".format(res.json()))
     session["token"] = res_body.get("access_token")
 
     return redirect("graph")
@@ -86,11 +86,11 @@ app = dash.Dash(
 )
 
 
-
-pp = pprint.PrettyPrinter(indent=4)
+#pp = pprint.PrettyPrinter(indent=4)
 
 
 def get_spotipy():
+    print("getting spotipy, token: {}".format(session['token']))
     return spotipy.Spotify(auth=session['token'])
 
 
