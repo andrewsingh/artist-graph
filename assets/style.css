@@ -186,6 +186,7 @@ input[type="button"].button-primary:focus {
     border-color: rgb(200, 35, 51); }
 
 
+
 /* Forms
   –––––––––––––––––––––––––––––––––––––––––––––––––– */
   input[type="email"],
@@ -315,6 +316,10 @@ audio::-webkit-media-controls-current-time-display, audio::-webkit-media-control
   text-shadow: none;
   color: white;
 }
+
+/* h1 {
+  color: green;
+} */
 
 
 /* audio::-webkit-media-controls-mute-button, audio::-webkit-media-controls-volume-slider-container, audio::-webkit-media-controls-volume-slider {

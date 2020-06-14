@@ -3,7 +3,7 @@ import time
 from collections import defaultdict
 import pprint
 import flask
-from flask import Flask, redirect, request, session, make_response
+from flask import Flask, redirect, request, session, make_response, render_template
 import dash
 import dash_core_components as dcc
 import dash_cytoscape as cyto
@@ -36,9 +36,16 @@ else:
 server = flask.Flask(__name__)
 server.secret_key = os.environ['SECRET_KEY']
 
+
+@server.route("/")
+def index():
+    return render_template('login.html')
+    
+
+
 # authorization-code-flow Step 1. Have your application request authorization; 
 # the user logs in and authorizes access
-@server.route("/")
+@server.route("/login")
 def verify():
     auth_url = f'{API_BASE}/authorize?client_id={SPOTIFY_CLIENT_ID}&response_type=code&redirect_uri={redirect_uri}&scope={SCOPE}&show_dialog={SHOW_DIALOG}'
     print("auth_url: {}".format(auth_url))
