@@ -31,7 +31,7 @@ SPOTIFY_CLIENT_SECRET=''
 REDIRECT_URI = 'https://spotify-artist-graph.herokuapp.com/callback'
 REDIRECT_URI_LOCAL = 'http://127.0.0.1:8050/callback'
 
-is_local = True
+is_local = False
 
 if is_local:
     redirect_uri = REDIRECT_URI_LOCAL
