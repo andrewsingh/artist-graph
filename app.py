@@ -21,10 +21,10 @@ import os
 API_BASE = 'https://accounts.spotify.com'
 SPOTIFY_CLIENT_ID = os.environ['SPOTIFY_CLIENT_ID']
 SPOTIFY_CLIENT_SECRET = os.environ['SPOTIFY_CLIENT_SECRET']
-REDIRECT_URI = 'https://spotify-artist-graph.herokuapp.com/callback'
+REDIRECT_URI = 'https://artist-graph-app.herokuapp.com/callback'
 REDIRECT_URI_LOCAL = 'http://127.0.0.1:8050/callback'
 SCOPE = 'user-top-read,playlist-modify-public'
-SHOW_DIALOG = True
+SHOW_DIALOG = False
 
 
 if int(os.environ['DEBUG']) == 1:
@@ -37,7 +37,7 @@ server = flask.Flask(__name__)
 server.secret_key = os.environ['SECRET_KEY']
 
 
-@server.route("/")
+@server.route('/')
 def index():
     return render_template('login.html')
 
@@ -45,34 +45,34 @@ def index():
 
 # authorization-code-flow Step 1. Have your application request authorization; 
 # the user logs in and authorizes access
-@server.route("/login")
+@server.route('/login')
 def verify():
     auth_url = f'{API_BASE}/authorize?client_id={SPOTIFY_CLIENT_ID}&response_type=code&redirect_uri={redirect_uri}&scope={SCOPE}&show_dialog={SHOW_DIALOG}'
-    print("auth_url: {}".format(auth_url))
+    print('auth_url: {}'.format(auth_url))
     return redirect(auth_url)
 
 
 # authorization-code-flow Step 2.
 # Have your application request refresh and access tokens;
 # Spotify returns access and refresh tokens
-@server.route("/callback")
+@server.route('/callback')
 def api_callback():
     session.clear()
     code = request.args.get('code')
 
-    auth_token_url = f"{API_BASE}/api/token"
+    auth_token_url = f'{API_BASE}/api/token'
     res = requests.post(auth_token_url, data={
-        "grant_type":"authorization_code",
-        "code":code,
-        "redirect_uri": redirect_uri,
-        "client_id": SPOTIFY_CLIENT_ID,
-        "client_secret": SPOTIFY_CLIENT_SECRET
+        'grant_type':'authorization_code',
+        'code':code,
+        'redirect_uri': redirect_uri,
+        'client_id': SPOTIFY_CLIENT_ID,
+        'client_secret': SPOTIFY_CLIENT_SECRET
         })
 
     res_body = res.json()
-    print("auth response: {}".format(res.json()))
-    session["token"] = res_body.get("access_token")
-    return redirect("graph")
+    print('auth response: {}'.format(res.json()))
+    session['token'] = res_body.get('access_token')
+    return redirect('graph')
 
 
 app = dash.Dash(
@@ -82,13 +82,15 @@ app = dash.Dash(
     meta_tags=[{'name': 'viewport', 'content': 'width=device-width'}]
 )
 
+app.title = 'Artist Graph'
+
 
 #pp = pprint.PrettyPrinter(indent=4)
 
 
 
 def get_spotipy():
-    print("getting spotipy, token: {}".format(session['token']))
+    print('getting spotipy, token: {}'.format(session['token']))
     return spotipy.Spotify(auth=session['token'])
 
 
