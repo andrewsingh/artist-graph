@@ -112,7 +112,8 @@ default_time_range = 'medium_term'
 
 
 def get_weight(rank):
-    return -rank + min_rank + weight_baseline
+    # return -rank + min_rank + weight_baseline
+    return 70 * math.exp(-0.07 * rank)
 
 def get_size(rank):
     return ((-rank + min_rank) * size_multiplier) + size_baseline
