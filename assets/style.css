@@ -185,6 +185,29 @@ input[type="button"].button-primary:focus {
     background-color: rgb(200, 35, 51);
     border-color: rgb(200, 35, 51); }
 
+    .button.button-spotify,
+    button.button-spotify,
+    input[type="submit"].button-spotify,
+    input[type="reset"].button-spotify,
+    input[type="button"].button-spotify {
+      color: #FFF;
+      background-color: rgb(0, 144, 0);
+      border-color: rgb(0, 144, 0); }
+    .button.button-spotify:hover,
+    button.button-spotify:hover,
+    input[type="submit"].button-spotify:hover,
+    input[type="reset"].button-spotify:hover,
+    input[type="button"].button-spotify:hover,
+    .button.button-spotify:focus,
+    button.button-spotify:focus,
+    input[type="submit"].button-spotify:focus,
+    input[type="reset"].button-spotify:focus,
+    input[type="button"].button-spotify:focus {
+      color: #FFF;
+      background-color: rgb(0, 120, 0);
+      border-color: rgb(0, 120, 0); 
+    }
+
 
 
 /* Forms
@@ -390,6 +413,7 @@ body {
 
 #artist-search-label, #new-artist-threshold-label {
   margin-bottom: 5px;
+  margin-top: -5px;
 }
 
 
@@ -531,9 +555,12 @@ div.Select-value, .Select-control,div.period, .Select-input{
   margin-top: 10px;
 }
 
-
 .green {
   color: rgb(0, 180, 0);
+}
+
+.babyblue{
+  color: #33C3F0;
 }
 
 #intro-list {
@@ -544,10 +571,10 @@ div.Select-value, .Select-control,div.period, .Select-input{
   color: #b4b4b4;
 }
 
+#intro-list li {
+  margin-bottom: 5px;
+}
+
 /* #subtitle {
   color: #b4b4b4;
 } */
-
-#title-header, #seed-list {
-  color: #33C3F0;
-}

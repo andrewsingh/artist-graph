@@ -90,7 +90,7 @@ app.title = 'Artist Graph'
 
 
 def get_spotipy():
-    print('getting spotipy, token: {}'.format(session['token']))
+    # print('getting spotipy, token: {}'.format(session['token']))
     return spotipy.Spotify(auth=session['token'])
 
 
@@ -157,19 +157,32 @@ def get_graph_elements(time_range, new_artist_val, sp):
             (u, v) = (edge['data']['source'], edge['data']['target'])
             weights[v] += get_weight(ranks[u])
 
+    # Normalize weights
+    max_weight = max(weights.values())
+    for id in weights.keys():
+        weights[id] /= max_weight
+    
+    # Calculate threshold
     weight_list = list(weights.values())
     weight_pctile = 100 - new_artist_val
     weight_threshold = np.percentile(weight_list, weight_pctile)
     if weight_pctile == 100:
         weight_threshold += 1e-6
 
-    new_artist_count = 0
+    # new_artist_count = 0
+    colors = dict.fromkeys(weights.keys())
+    for id in colors.keys():
+        red = str(weights[id] * 51)
+        green = str(weights[id] * 195)
+        blue = str(weights[id] * 240)
+        colors[id] = 'rgb(' + ', '.join([red, green, blue]) + ')'
+        # colors[id] = 'rgb(0, 0, ' + str(weights[id] * 250) + ')'
 
     for (new_id, new_edges) in new_artist_edges.items():
         if weights[new_id] >= weight_threshold:
-            new_artist_count += 1
-            nodes.append({'data': {'id': new_id, 'label': artist_names[new_id],
-                'size': get_size(min_rank), 'weight': weights[new_id], 'activation': 0, 'selected': False, 'top': False}, 'classes': 'new'})
+            # new_artist_count += 1
+            nodes.append({'data': {'id': new_id, 'label': artist_names[new_id], 'size': get_size(min_rank), 
+                'weight': weights[new_id], 'color': colors[new_id], 'activation': 0, 'selected': False, 'top': False}, 'classes': 'new'})
             edges += new_edges
 
     for (rank, id) in enumerate(top_ids):
@@ -538,21 +551,18 @@ graph = cyto.Cytoscape(
             'selector': '.top',
             'style': {
                 'background-color': '#555',
-                # 'text-outline-color': '#555'
             }
         },
         {
             'selector': '.new',
             'style': {
-                'background-color': 'green',
-                # 'text-outline-color': 'green'
+                'background-color': 'data(color)',
             }
         },
         {
             'selector': '[activation >= 1]',
             'style': {
-                'background-color': '#33C3F0',
-                'text-outline-color': '#000'
+                'background-color': 'green',
             }
         }
     ]
@@ -575,7 +585,7 @@ app.layout = html.Div(
                 html.Div(
                     id='div-header',
                     children=[
-                        html.H3(id='title-header', children='Artist Graph')
+                        html.H3(id='title-header', className='babyblue', children='Artist Graph')
                     ]
                 ),
                 html.Div(
@@ -588,7 +598,8 @@ app.layout = html.Div(
                                 html.Li('The larger a node, the more you listen to that artist'),
                                 html.Li(children=[
                                     'Artists outside your top 50 are ',
-                                    html.Span(className='green', children='green')
+                                    html.Span(className='babyblue', children='blue'),
+                                    '; the lighter the shade, the more similar they are to your top artists'
                                 ])
                             ]
                         )
@@ -609,13 +620,16 @@ app.layout = html.Div(
                             searchable=False,
                             clearable=False
                         ),
-                        html.Label(id='new-artist-threshold-label', htmlFor='new-artist-threshold-slider', children='Percent of new artists in graph'),
+                        html.Label(
+                            id='new-artist-threshold-label', 
+                            htmlFor='new-artist-threshold-slider', 
+                            children=['% of ', html.Span(className='babyblue', children='outside artists'), ' in graph']),
                         dcc.Slider(
                             id='new-artist-threshold-slider',
                             min=0,
                             max=100,
                             step=1,
-                            value=5,
+                            value=10,
                             tooltip={'always_visible': False, 'placement': 'right'}
                         ),
                         html.Label(id='artist-search-label', htmlFor='artist-search-dropdown', children='Artist Search'),
@@ -674,8 +688,8 @@ app.layout = html.Div(
                                     value=[1]
                                 ),
                                 html.H6('Seeds', id='seed-header', className=''),
-                                html.Div(id='seed-list', children=[
-                                    'Select nodes in the graph to seed the playlist. When you have selected your seeds, click the initialize button below.'
+                                html.Div(id='seed-list', className='green', children=[
+                                    'Select nodes in the graph to seed the playlist, then click the initialize button below.'
                                 ]),
                                 html.Button('Initialize', id='initialize-btn', className='button-primary'),
                                 html.Br()
