@@ -65,7 +65,7 @@ retrying==1.3.3
 scipy
 Send2Trash==1.5.0
 six==1.15.0
-spotipy==2.12.0
+spotipy==2.22.1
 terminado==0.8.3
 testpath==0.4.4
 tornado==6.1
